@@ -1,0 +1,8 @@
+{
+  "cards": [
+    {"id": "grass", "name": "Grassland", "scene": "res://project/scenes/tiles/hex_tile.tscn", "weight": 5, "unlock_level": 1},
+    {"id": "forest", "name": "Forest", "scene": "res://project/scenes/tiles/forest_tile.tscn", "weight": 4, "unlock_level": 1},
+    {"id": "house", "name": "House", "scene": "res://project/scenes/tiles/house_tile.tscn", "weight": 2, "unlock_level": 2},
+    {"id": "castle", "name": "Castle", "scene": "res://project/scenes/tiles/castle_tile.tscn", "weight": 1, "unlock_level": 3}
+  ]
+}
