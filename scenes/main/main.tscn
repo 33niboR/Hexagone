@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://b27t3mxg5y0gn"]
 
 [ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="1_itjsd"]
-[ext_resource type="Script" uid="uid://c8hsqn8oqfyw2" path="res://project/scenes/main/control.gd" id="2_x0vdw"]
+[ext_resource type="Script" path="res://project/scenes/main/control.gd" id="2_x0vdw"]
 [ext_resource type="Texture2D" uid="uid://5vp107atp2ip" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hexagons_medieval.png" id="4_1hgs3"]
 [ext_resource type="ArrayMesh" uid="uid://x4leh8uk6q88" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_archeryrange_blue.obj" id="4_wiwuw"]
 [ext_resource type="ArrayMesh" uid="uid://bawe6qwpm18ya" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
