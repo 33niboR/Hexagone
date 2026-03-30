@@ -1,0 +1,129 @@
+[gd_scene format=4 uid="uid://b27t3mxg5y0gn"]
+
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="1_itjsd"]
+[ext_resource type="Script" uid="uid://c8hsqn8oqfyw2" path="res://project/scenes/main/control.gd" id="2_x0vdw"]
+[ext_resource type="Texture2D" uid="uid://5vp107atp2ip" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hexagons_medieval.png" id="4_1hgs3"]
+[ext_resource type="ArrayMesh" uid="uid://x4leh8uk6q88" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_archeryrange_blue.obj" id="4_wiwuw"]
+[ext_resource type="ArrayMesh" uid="uid://bawe6qwpm18ya" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dtfe8"]
+resource_name = "hexagons_medieval"
+albedo_texture = ExtResource("4_1hgs3")
+metallic = 0.5
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_d6vga"]
+_surfaces = [{
+"aabb": AABB(-1, -1, -1.1547, 2, 0.8, 2.3094),
+"format": 34359742465,
+"index_count": 72,
+"index_data": PackedByteArray("AAABAAgACAABAAkAAAAKAAEAAQALAAkACgALAAEADAAKAAAAAwALAAoADAADAAoACAANAAAAAAANAAwACAAJAAIAAgANAAgACQALAAQAAgAJAAQABgALAAMABAALAAYABQADAAwADAANAAUABQAGAAMABwANAAIABQANAAcAAgAEAAcABwAGAAUABwAEAAYA"),
+"lods": [0.79802275, PackedByteArray("AAABAAIAAAADAAEAAgABAAQABQADAAAAAgAFAAAABgABAAMABAABAAYABQAGAAMAAgAEAAcABwAFAAIABwAEAAYABwAGAAUA")],
+"name": "hexagons_medieval",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 14,
+"vertex_data": PackedByteArray("AAAAAAAAgL82zZO/AAAAAM3MTL42zZO/AACAvwAAgL82zRM/AACAP83MTL42zRM/AACAv83MTL42zRM/AACAPwAAgL82zRM/AAAAAM3MTL42zZM/AAAAAAAAgL82zZM/AACAvwAAgL82zRO/AACAv83MTL42zRO/AACAP83MTL42zRO/AAAAAM3MTL4AAAAAAACAPwAAgL82zRO/AAAAAAAAgL8AAAAA")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_wiwuw"]
+resource_local_to_scene = true
+_surfaces = [{
+"aabb": AABB(-1, -1, -1.1547, 2, 0.8, 2.3094),
+"attribute_data": PackedByteArray("PPhJPk5+6z48+Ek+J2fIPjz4ST5Ofus+PPhJPidnyD48+Ek+Tn7rPjz4ST4nZ8g+PPhJPk5+6z48+Ek+J2fIPjz4ST5Ofus+PPhJPidnyD48+Ek+Tn7rPjz4ST4nZ8g+PPhJPk5+6z48+Ek+J2fIPjz4ST5Ofus+PPhJPidnyD69wz0+f2rsPmNjTj5/auw+GCQtPn9q7D69wz0+f2rsPjz4ST6By7s+PPhJPoHLuz48+Ek+gcu7Pjz4ST6By7s+PPhJPk5+6z48+Ek+J2fIPjz4ST5Ofus+PPhJPidnyD48+Ek+Tn7rPjz4ST4nZ8g+PPhJPk5+6z48+Ek+J2fIPr3DPT5/auw+Y2NOPn9q7D4YJC0+f2rsPjz4ST6By7s+PPhJPoHLuz48+Ek+gcu7Pg=="),
+"format": 34359742487,
+"index_count": 72,
+"index_data": PackedByteArray("AAABABgAGAABABkADAANABoAGgANABsAHAAdAAIAAgAdAAMABAAFAAYABgAFAAcACAAJAAoACgAJAAsAHgAfAA4ADgAfAA8AEwAgACEAIQAgABEAIgAgABMAEQAgABAAEgAgACIAEAAgABIAIwAkABUAFQAkACUAFgAkACMAJQAkABcAFAAkABYAFwAkABQA"),
+"lods": [0.79802275, PackedByteArray("AAABAAIAAgABAAMABAAFAAYABgAFAAcACAAJAAoACgAJAAsADAANAA4ADgANAA8AEAARABIAEgARABMAFAAVABYAFwAVABQA")],
+"material": SubResource("StandardMaterial3D_dtfe8"),
+"name": "hexagons_medieval",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 38,
+"vertex_data": PackedByteArray("AAAAAAAAgL82zZO/AAAAAM3MTL42zZO/AACAvwAAgL82zRM/AACAv83MTL42zRM/AAAAAAAAgL82zZM/AAAAAM3MTL42zZM/AACAPwAAgL82zRM/AACAP83MTL42zRM/AACAvwAAgL82zRM/AACAv83MTL42zRM/AAAAAAAAgL82zZM/AAAAAM3MTL42zZM/AACAPwAAgL82zRM/AACAP83MTL42zRM/AAAAAAAAgL82zZO/AAAAAM3MTL42zZO/AAAAAAAAgL82zZM/AACAPwAAgL82zRM/AACAvwAAgL82zRM/AAAAAAAAgL82zZO/AAAAAM3MTL42zZM/AAAAAM3MTL42zZO/AACAP83MTL42zRM/AACAv83MTL42zRM/AACAvwAAgL82zRO/AACAv83MTL42zRO/AACAPwAAgL82zRO/AACAP83MTL42zRO/AACAvwAAgL82zRO/AACAv83MTL42zRO/AACAPwAAgL82zRO/AACAP83MTL42zRO/AAAAAAAAgL8AAAAAAACAPwAAgL82zRO/AACAvwAAgL82zRO/AACAP83MTL42zRO/AAAAAM3MTL4AAAAAAACAv83MTL42zRO/AAAl0f///78AACXR////vwAA/3////+/AAD/f////7/Zrv9/////P9mu/3////8/2a7/f////z/Zrv9/////PyVR/3////8/JVH/f////z8lUf9/////PyVR/3////8/////f////7////9/////v///JdH///+///8l0f///7//fwAA////v/9/AAD///+//38AAP///7//fwAA////v/9///////+//3///////7//f///////v/9///////+/AAAl0f///78AACXR////v////3////+/////f////78AAP9/////vwAA/3////+///8l0f///7///yXR////v/9/AAD///+//38AAP///7//fwAA////v/9///////+//3///////7//f///////vw==")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_d6vga")
+
+[node name="Main" type="Node3D" unique_id=1084730039]
+
+[node name="World" type="Node3D" parent="." unique_id=956657566]
+
+[node name="HexTile" parent="World" unique_id=1231653440 instance=ExtResource("1_itjsd")]
+
+[node name="HexTile2" parent="World" unique_id=1952909196 instance=ExtResource("1_itjsd")]
+transform = Transform3D(0.9996664, 0.025828, 0, -0.025828, 0.9996664, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="HexTile3" parent="World" unique_id=47331936 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+
+[node name="HexTile4" parent="World" unique_id=828630661 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -3.46)
+
+[node name="HexTile5" parent="World" unique_id=869237774 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 3.46)
+
+[node name="HexTile6" parent="World" unique_id=1103068246 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 3.46)
+
+[node name="HexTile7" parent="World" unique_id=1048079981 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -3.46)
+
+[node name="Camera3D" type="Camera3D" parent="World" unique_id=1889803290]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 12, 12)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1625509247]
+transform = Transform3D(0.6593307, -0.7480242, -0.075781494, 0.017674083, -0.08534492, 0.9961947, -0.7516453, -0.65816116, -0.043049887, 0, 100, 0)
+
+[node name="card system" type="CanvasLayer" parent="." unique_id=1641955506]
+
+[node name="Control" type="Control" parent="card system" unique_id=336220348]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("2_x0vdw")
+
+[node name="building" type="Button" parent="card system/Control" unique_id=1452639354]
+layout_direction = 2
+layout_mode = 0
+offset_left = 19.0
+offset_top = 48.0
+offset_right = 98.0
+offset_bottom = 79.0
+text = "buildings"
+
+[node name="river" type="Button" parent="card system/Control" unique_id=885593417]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 59.0
+offset_bottom = 41.0
+text = "river"
+
+[node name="grass" type="Button" parent="card system/Control" unique_id=218864050]
+layout_mode = 0
+offset_left = 68.0
+offset_top = 8.0
+offset_right = 117.0
+offset_bottom = 39.0
+text = "grass"
+
+[node name="BuildPreview" type="Node3D" parent="." unique_id=2081239512]
+
+[node name="building" type="MeshInstance3D" parent="BuildPreview" unique_id=1082272163]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+mesh = ExtResource("4_wiwuw")
+
+[node name="river" type="MeshInstance3D" parent="BuildPreview" unique_id=1904511879]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+mesh = SubResource("ArrayMesh_wiwuw")
+
+[node name="grass" type="MeshInstance3D" parent="BuildPreview" unique_id=2032169364]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+mesh = ExtResource("5_wiwuw")
+
+[connection signal="pressed" from="card system/Control/building" to="card system/Control" method="_on_building_pressed"]
+[connection signal="pressed" from="card system/Control/river" to="card system/Control" method="_on_river_pressed"]
+[connection signal="pressed" from="card system/Control/grass" to="card system/Control" method="_on_grass_pressed"]
