@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://b27t3mxg5y0gn"]
+
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="1_itjsd"]
+
+[node name="Main" type="Node3D" unique_id=1084730039]
+
+[node name="World" type="Node3D" parent="." unique_id=956657566]
+
+[node name="HexTile" parent="World" unique_id=1231653440 instance=ExtResource("1_itjsd")]
+
+[node name="HexTile2" parent="World" unique_id=1952909196 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="HexTile3" parent="World" unique_id=47331936 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+
+[node name="HexTile4" parent="World" unique_id=828630661 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -3.46)
+
+[node name="HexTile5" parent="World" unique_id=869237774 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 3.46)
+
+[node name="HexTile6" parent="World" unique_id=1103068246 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 3.46)
+
+[node name="HexTile7" parent="World" unique_id=1048079981 instance=ExtResource("1_itjsd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -3.46)
+
+[node name="Camera3D" type="Camera3D" parent="World" unique_id=1889803290]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 12, 12)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1625509247]
