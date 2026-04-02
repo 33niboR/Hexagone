@@ -1,0 +1,9 @@
+*.gd text eol=lf
+*.tscn text eol=lf
+*.tres text eol=lf
+*.res binary
+*.fbx binary
+*.png binary
+*.jpg binary
+*.wav binary
+*.ogg binary
