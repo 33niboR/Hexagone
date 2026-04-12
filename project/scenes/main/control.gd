@@ -1,10 +1,12 @@
 extends Control
 
+const HexGrid = preload("res://project/scripts/grid/hex_grid.gd")
 
 @onready var preview_building = get_node("/root/Main/BuildPreview/building")
 @onready var preview_river = get_node("/root/Main/BuildPreview/river")
 @onready var preview_grass = get_node("/root/Main/BuildPreview/grass")
 @onready var world_node = get_node("/root/Main/World")
+@onready var hex_grid: HexGrid = HexGrid.new()
 
 var is_placing: bool = false
 var current_active_model: Node3D = null 
@@ -36,16 +38,20 @@ func _start_placement(target_model: Node3D):
 
 func _process(_delta):
 	if is_placing and current_active_model:
-		var target_pos = get_mouse_3d_position()
+		var target_pos: Vector3 = _get_snapped_mouse_position()
 		current_active_model.global_position = target_pos
-		
-		
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			_place_item(target_pos)
-		
-		
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+
+func _unhandled_input(event):
+	if not is_placing or not current_active_model:
+		return
+
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_place_item(current_active_model.global_position)
+			get_viewport().set_input_as_handled()
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_cancel_placement()
+			get_viewport().set_input_as_handled()
 
 func _place_item(pos: Vector3):
 	if not current_active_model: return
@@ -82,3 +88,6 @@ func get_mouse_3d_position() -> Vector3:
 	var inter = p.intersects_ray(ray_o, ray_d)
 	
 	return inter if inter != null else Vector3.ZERO
+
+func _get_snapped_mouse_position() -> Vector3:
+	return hex_grid.snap_world_to_hex(get_mouse_3d_position())
