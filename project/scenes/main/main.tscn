@@ -11,6 +11,15 @@ resource_name = "hexagons_medieval"
 albedo_texture = ExtResource("4_1hgs3")
 metallic = 0.5
 
+[sub_resource type="Environment" id="Environment_sunny"]
+background_mode = 1
+background_color = Color(0.48, 0.62, 0.78, 1)
+ambient_light_source = 1
+ambient_light_color = Color(0.72, 0.82, 0.94, 1)
+ambient_light_energy = 0.38
+reflected_light_source = 1
+tonemap_mode = 2
+
 [sub_resource type="ArrayMesh" id="ArrayMesh_d6vga"]
 _surfaces = [{
 "aabb": AABB(-1, -1, -1.1547, 2, 0.8, 2.3094),
@@ -49,6 +58,9 @@ shadow_mesh = SubResource("ArrayMesh_d6vga")
 
 [node name="World" type="Node3D" parent="." unique_id=956657566]
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="World" unique_id=1176353552]
+environment = SubResource("Environment_sunny")
+
 [node name="HexTile" parent="World" unique_id=1231653440 instance=ExtResource("1_itjsd")]
 
 [node name="HexTile2" parent="World" unique_id=1952909196 instance=ExtResource("1_itjsd")]
@@ -74,7 +86,13 @@ transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70
 current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1625509247]
-transform = Transform3D(0.6593307, -0.7480242, -0.075781494, 0.017674083, -0.08534492, 0.9961947, -0.7516453, -0.65816116, -0.043049887, 0, 100, 0)
+transform = Transform3D(0.64278764, -0.6830127, 0.3461886, 0, 0.45121717, 0.8924131, -0.76604444, -0.57357645, 0.29038075, 0, 100, 0)
+light_color = Color(1, 1, 1, 1)
+light_energy = 1.15
+shadow_enabled = true
+directional_shadow_max_distance = 80.0
+directional_shadow_fade_start = 0.75
+directional_shadow_blend_splits = true
 
 [node name="card system" type="CanvasLayer" parent="." unique_id=1641955506]
 

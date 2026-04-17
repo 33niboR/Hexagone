@@ -217,6 +217,7 @@ func _add_mesh_icon_scene(viewport: SubViewport, preview: Node3D) -> void:
 
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	mesh_instance.mesh = source_mesh_instance.mesh
+	mesh_instance.material_override = source_mesh_instance.material_override
 	mesh_instance.rotation_degrees = Vector3(-18.0, 35.0, 0.0)
 	root.add_child(mesh_instance)
 
