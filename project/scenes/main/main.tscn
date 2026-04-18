@@ -1,15 +1,11 @@
 [gd_scene format=4 uid="uid://b27t3mxg5y0gn"]
 
 [ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="1_itjsd"]
-[ext_resource type="Script" path="res://project/scenes/main/control.gd" id="2_x0vdw"]
-[ext_resource type="Texture2D" uid="uid://5vp107atp2ip" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hexagons_medieval.png" id="4_1hgs3"]
-[ext_resource type="ArrayMesh" uid="uid://x4leh8uk6q88" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_archeryrange_blue.obj" id="4_wiwuw"]
-[ext_resource type="ArrayMesh" uid="uid://bawe6qwpm18ya" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dtfe8"]
-resource_name = "hexagons_medieval"
-albedo_texture = ExtResource("4_1hgs3")
-metallic = 0.5
+[ext_resource type="Script" uid="uid://brsi0gsrsbht6" path="res://project/scenes/main/control.gd" id="2_x0vdw"]
+[ext_resource type="Texture2D" uid="uid://mrhf1wuxucqf" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hexagons_medieval.png" id="4_1hgs3"]
+[ext_resource type="ArrayMesh" uid="uid://fsuv3jqinrtu" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_archeryrange_blue.obj" id="4_wiwuw"]
+[ext_resource type="ArrayMesh" uid="uid://b6f5gd3f2f0bn" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
+[ext_resource type="Script" uid="uid://ddppj02hs73e2" path="res://project/scenes/main/playercamera.gd" id="6_1hgs3"]
 
 [sub_resource type="Environment" id="Environment_sunny"]
 background_mode = 1
@@ -19,6 +15,11 @@ ambient_light_color = Color(0.72, 0.82, 0.94, 1)
 ambient_light_energy = 0.38
 reflected_light_source = 1
 tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dtfe8"]
+resource_name = "hexagons_medieval"
+albedo_texture = ExtResource("4_1hgs3")
+metallic = 0.5
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_d6vga"]
 _surfaces = [{
@@ -87,12 +88,11 @@ current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1625509247]
 transform = Transform3D(0.64278764, -0.6830127, 0.3461886, 0, 0.45121717, 0.8924131, -0.76604444, -0.57357645, 0.29038075, 0, 100, 0)
-light_color = Color(1, 1, 1, 1)
 light_energy = 1.15
 shadow_enabled = true
-directional_shadow_max_distance = 80.0
-directional_shadow_fade_start = 0.75
 directional_shadow_blend_splits = true
+directional_shadow_fade_start = 0.75
+directional_shadow_max_distance = 80.0
 
 [node name="card system" type="CanvasLayer" parent="." unique_id=1641955506]
 
@@ -141,6 +141,13 @@ mesh = SubResource("ArrayMesh_wiwuw")
 [node name="grass" type="MeshInstance3D" parent="BuildPreview" unique_id=2032169364]
 transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 mesh = ExtResource("5_wiwuw")
+
+[node name="player camera" type="Node3D" parent="." unique_id=364827781]
+script = ExtResource("6_1hgs3")
+
+[node name="Camera3D" type="Camera3D" parent="player camera" unique_id=616740063]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 12, 12)
+current = true
 
 [connection signal="pressed" from="card system/Control/building" to="card system/Control" method="_on_building_pressed"]
 [connection signal="pressed" from="card system/Control/river" to="card system/Control" method="_on_river_pressed"]

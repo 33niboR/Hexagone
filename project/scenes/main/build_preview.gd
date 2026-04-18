@@ -1,6 +1,6 @@
 extends Control
 
-# 1. 这里用 $ 符号直接指向你的 3D 节点路径
+
 @onready var preview_building = get_node("/root/Main/BuildPreview/building")
 @onready var preview_water = get_node("/root/Main/BuildPreview/water")
 @onready var preview_grass = get_node("/root/Main/BuildPreview/grasss")
@@ -10,9 +10,9 @@ var is_placing: bool = false
 var current_active_preview: Node3D = null 
 var current_button: Button = null
 
-# --- 按钮点这里 ---
+
 func _on_building_pressed():
-	print("--- Clicked Building! ---") # 如果没打印这行，说明信号断了
+	print("--- Clicked Building! ---") 
 	start_placement(preview_building)
 
 func _on_river_sea_pressed():
@@ -25,7 +25,7 @@ func _on_ground_pressed():
 
 # --- 核心逻辑 ---
 func start_placement(target_preview: Node3D):
-	# 强制让父节点显示，子节点只显示选中的那个
+
 	get_node("/root/Main/BuildPreview").show() 
 	preview_building.hide()
 	preview_water.hide()
