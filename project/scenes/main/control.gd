@@ -9,42 +9,63 @@ const CARD_HORIZONTAL_GAP: float = 12.0
 const CARD_VERTICAL_GAP: float = 12.0
 const CARD_COLUMNS: int = 2
 const ICON_SIZE: Vector2i = Vector2i(154, 108)
+const PLACEMENT_TERRAIN: String = "terrain"
+const PLACEMENT_OBJECT: String = "object"
+const TERRAIN_LAND: String = "land"
+const TERRAIN_WATER: String = "water"
+const AXIAL_DIRECTIONS: Array[Vector2i] = [
+	Vector2i(1, 0),
+	Vector2i(1, -1),
+	Vector2i(0, -1),
+	Vector2i(-1, 0),
+	Vector2i(-1, 1),
+	Vector2i(0, 1)
+]
 
 const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 	{
 		"id": "house",
 		"label": "House",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_home_A_blue.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_home_A_blue.obj",
+		"placement_layer": PLACEMENT_OBJECT
 	},
 	{
 		"id": "castle",
 		"label": "Castle",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_castle_blue.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_castle_blue.obj",
+		"placement_layer": PLACEMENT_OBJECT
 	},
 	{
 		"id": "market",
 		"label": "Market",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_market_blue.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_market_blue.obj",
+		"placement_layer": PLACEMENT_OBJECT
 	},
 	{
 		"id": "forest",
 		"label": "Forest",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/trees_A_large.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/trees_A_large.obj",
+		"placement_layer": PLACEMENT_OBJECT
 	},
 	{
 		"id": "mountain",
 		"label": "Mountain",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/mountain_A_grass_trees.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/mountain_A_grass_trees.obj",
+		"placement_layer": PLACEMENT_OBJECT
 	},
 	{
 		"id": "road",
 		"label": "Road",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/roads/hex_road_A.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/roads/hex_road_A.obj",
+		"placement_layer": PLACEMENT_TERRAIN,
+		"terrain_type": TERRAIN_LAND
 	},
 	{
 		"id": "coast",
 		"label": "Coast",
-		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/coast/hex_coast_A.obj"
+		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/coast/hex_coast_A.obj",
+		"placement_layer": PLACEMENT_TERRAIN,
+		"terrain_type": TERRAIN_WATER
 	}
 ]
 
@@ -61,16 +82,20 @@ const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 var is_placing: bool = false
 var current_active_model: Node3D = null 
 var placeable_previews: Array[Node3D] = []
+var terrain_cells: Dictionary = {}
+var object_cells: Dictionary = {}
+var terrain_types: Dictionary = {}
 
 func _ready():
 	building_button.hide()
 	river_button.hide()
 	grass_button.hide()
 
+	_seed_existing_terrain_cells()
 	placeable_previews.clear()
-	placeable_previews.append(preview_building)
-	placeable_previews.append(preview_river)
-	placeable_previews.append(preview_grass)
+	_register_placeable_preview(preview_building, PLACEMENT_OBJECT)
+	_register_placeable_preview(preview_river, PLACEMENT_TERRAIN, TERRAIN_WATER)
+	_register_placeable_preview(preview_grass, PLACEMENT_TERRAIN, TERRAIN_LAND)
 	_create_placeable_card("Archery Range", preview_building, 0)
 	_create_placeable_card("River Tile", preview_river, 1)
 	_create_placeable_card("Grass Tile", preview_grass, 2)
@@ -118,14 +143,23 @@ func _unhandled_input(event):
 
 func _place_item(pos: Vector3):
 	if not current_active_model: return
+	var cell: Vector2i = hex_grid.world_to_axial(pos)
+	var placement_layer: String = _get_placement_layer(current_active_model)
+	if not _can_place_at(cell, placement_layer):
+		print("invalid placement: ", _get_invalid_placement_reason(cell, placement_layer))
+		return
 	
 	var new_item = current_active_model.duplicate()
 	world_node.add_child(new_item)
 	new_item.global_position = pos
 	new_item.show()
+	new_item.set_meta("placement_layer", placement_layer)
+	if placement_layer == PLACEMENT_TERRAIN:
+		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
+	_register_placed_item(cell, placement_layer, new_item)
 	
 	print("placement successful: ", current_active_model.name)
-	MusicManager.play_place_sfx()
+	_play_place_sfx()
 	_cancel_placement()
 
 func _cancel_placement():
@@ -145,6 +179,8 @@ func _create_additional_placeables() -> void:
 		var id: String = str(placeable["id"])
 		var label: String = str(placeable["label"])
 		var mesh_path: String = str(placeable["mesh_path"])
+		var placement_layer: String = str(placeable["placement_layer"])
+		var terrain_type: String = str(placeable.get("terrain_type", TERRAIN_LAND))
 		var mesh_resource: Resource = load(mesh_path)
 
 		if not (mesh_resource is Mesh):
@@ -156,9 +192,84 @@ func _create_additional_placeables() -> void:
 		preview.mesh = mesh_resource as Mesh
 		preview.scale = Vector3(2.0, 2.0, 2.0)
 		build_preview_node.add_child(preview)
-		placeable_previews.append(preview)
+		_register_placeable_preview(preview, placement_layer, terrain_type)
 
 		_create_placeable_card(label, preview, index + 3)
+
+func _register_placeable_preview(preview: Node3D, placement_layer: String, terrain_type: String = TERRAIN_LAND) -> void:
+	preview.set_meta("placement_layer", placement_layer)
+	if placement_layer == PLACEMENT_TERRAIN:
+		preview.set_meta("terrain_type", terrain_type)
+	placeable_previews.append(preview)
+
+func _seed_existing_terrain_cells() -> void:
+	terrain_cells.clear()
+	object_cells.clear()
+	terrain_types.clear()
+	for child: Node in world_node.get_children():
+		var node_3d: Node3D = child as Node3D
+		if node_3d == null:
+			continue
+		if not node_3d.name.begins_with("HexTile"):
+			continue
+		var cell: Vector2i = hex_grid.world_to_axial(node_3d.global_position)
+		terrain_cells[cell] = node_3d
+		terrain_types[cell] = TERRAIN_LAND
+		node_3d.set_meta("placement_layer", PLACEMENT_TERRAIN)
+		node_3d.set_meta("terrain_type", TERRAIN_LAND)
+
+func _can_place_at(cell: Vector2i, placement_layer: String) -> bool:
+	if placement_layer == PLACEMENT_TERRAIN:
+		return not terrain_cells.has(cell) and _has_adjacent_terrain(cell)
+	if placement_layer == PLACEMENT_OBJECT:
+		return terrain_cells.has(cell) and _terrain_accepts_object(cell) and not object_cells.has(cell)
+	return false
+
+func _get_invalid_placement_reason(cell: Vector2i, placement_layer: String) -> String:
+	if placement_layer == PLACEMENT_TERRAIN:
+		if terrain_cells.has(cell):
+			return "terrain already exists at " + str(cell)
+		if not _has_adjacent_terrain(cell):
+			return "terrain must be adjacent to an existing tile"
+	if placement_layer == PLACEMENT_OBJECT:
+		if not terrain_cells.has(cell):
+			return "objects must be placed on an existing tile"
+		if not _terrain_accepts_object(cell):
+			return "objects cannot be placed on water"
+		if object_cells.has(cell):
+			return "tile already has an object"
+	return "unknown placeable type"
+
+func _has_adjacent_terrain(cell: Vector2i) -> bool:
+	for direction: Vector2i in AXIAL_DIRECTIONS:
+		if terrain_cells.has(cell + direction):
+			return true
+	return false
+
+func _register_placed_item(cell: Vector2i, placement_layer: String, item: Node3D) -> void:
+	if placement_layer == PLACEMENT_TERRAIN:
+		terrain_cells[cell] = item
+		terrain_types[cell] = _get_terrain_type(item)
+	elif placement_layer == PLACEMENT_OBJECT:
+		object_cells[cell] = item
+
+func _terrain_accepts_object(cell: Vector2i) -> bool:
+	return str(terrain_types.get(cell, TERRAIN_WATER)) == TERRAIN_LAND
+
+func _get_placement_layer(placeable: Node3D) -> String:
+	if placeable.has_meta("placement_layer"):
+		return str(placeable.get_meta("placement_layer"))
+	return PLACEMENT_OBJECT
+
+func _get_terrain_type(placeable: Node3D) -> String:
+	if placeable.has_meta("terrain_type"):
+		return str(placeable.get_meta("terrain_type"))
+	return TERRAIN_LAND
+
+func _play_place_sfx() -> void:
+	var music_manager: Node = get_node_or_null("/root/MusicManager")
+	if music_manager:
+		music_manager.call("play_place_sfx")
 
 func _create_placeable_card(label: String, preview: Node3D, index: int) -> void:
 	var column: int = index % CARD_COLUMNS
