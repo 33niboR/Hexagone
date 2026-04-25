@@ -729,8 +729,7 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_owrtr")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_jugfl")
 theme_override_styles/hover = SubResource("StyleBoxFlat_abs4g")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_jugfl")
-text = "instruction
-"
+text = "Instructions"
 
 [node name="Exit" type="Button" parent="Main_Button" unique_id=1113234189]
 layout_mode = 2
@@ -877,6 +876,19 @@ theme_override_fonts/font = ExtResource("4_eq8hc")
 theme_override_font_sizes/font_size = 30
 text = "SFX:"
 
+[node name="SFX_Control" type="HSlider" parent="Options_Button/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/center_grabber = 1
+theme_override_constants/grabber_offset = 0
+theme_override_styles/slider = SubResource("StyleBoxLine_2llep")
+theme_override_styles/grabber_area = SubResource("StyleBoxLine_x5ppo")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxLine_x5ppo")
+max_value = 1.0
+step = 0.05
+value = 1.0
+script = ExtResource("6_4wmut")
+audio_bus_name = "SFX"
+
 [node name="Help_Panel" type="Panel" parent="." unique_id=617851537]
 visible = false
 layout_mode = 1
@@ -903,7 +915,7 @@ offset_bottom = 90.0
 grow_horizontal = 2
 theme_override_fonts/font = ExtResource("3_el5ja")
 theme_override_font_sizes/font_size = 70
-text = "instruction"
+text = "Instructions"
 horizontal_alignment = 1
 vertical_alignment = 1
 

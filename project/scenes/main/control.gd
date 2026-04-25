@@ -125,6 +125,7 @@ func _place_item(pos: Vector3):
 	new_item.show()
 	
 	print("placement successful: ", current_active_model.name)
+	MusicManager.play_place_sfx()
 	_cancel_placement()
 
 func _cancel_placement():

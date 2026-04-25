@@ -9,6 +9,9 @@ func _ready() -> void:
 	if audio_bus_id == -1:
 		push_warning("Audio bus '%s' was not found." % audio_bus_name)
 		return
+	var value_changed_callable: Callable = Callable(self, "_on_value_changed")
+	if not value_changed.is_connected(value_changed_callable):
+		value_changed.connect(value_changed_callable)
 	set_value_no_signal(db_to_linear(AudioServer.get_bus_volume_db(audio_bus_id)))
 
 func _on_value_changed(value: float) -> void:
