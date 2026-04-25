@@ -11,6 +11,7 @@ func _ready() -> void:
 	main_button.visible = true
 	options_button.visible = false
 	help_panel.visible = false
+	MusicManager.play_music()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:

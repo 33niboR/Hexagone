@@ -4,7 +4,6 @@
 [ext_resource type="Texture2D" uid="uid://dqtddmiy0abcc" path="res://Hexagone_Title_Screen/Screenshot 2026-03-31 000905.png" id="1_jugfl"]
 [ext_resource type="Script" uid="uid://dt5u2bxs4rde3" path="res://Hexagone_Title_Screen/resolution.gd" id="3_abs4g"]
 [ext_resource type="FontFile" uid="uid://10putst26bc2" path="res://Hexagone_Title_Screen/Fonts/thaleahfat/ThaleahFat.ttf" id="3_el5ja"]
-[ext_resource type="AudioStream" uid="uid://dlax31yensohx" path="res://Hexagone_Title_Screen/Music/Music.wav" id="3_eq8hc"]
 [ext_resource type="FontFile" uid="uid://cpod1d2wflcif" path="res://Hexagone_Title_Screen/Fonts/alagard/alagard.ttf" id="4_eq8hc"]
 [ext_resource type="Script" uid="uid://c7senrh7l3xld" path="res://Hexagone_Title_Screen/music_control.gd" id="6_4wmut"]
 
@@ -767,10 +766,6 @@ theme_override_font_sizes/font_size = 120
 text = "Hexagone"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="Music" type="AudioStreamPlayer" parent="." unique_id=1619979515]
-stream = ExtResource("3_eq8hc")
-autoplay = true
 
 [node name="Options_Button" type="Panel" parent="." unique_id=1558549451]
 visible = false
