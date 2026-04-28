@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://bvwfg7kgajjqp"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_2lgxb"]
+[ext_resource type="Texture2D" uid="uid://h40m6sm71xsn" path="res://Draw_Cards/Hexagone_Cards/blue_building/building_tavern_blue.png" id="2_2lgxb"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_327vq"]
+
+[resource]
+script = ExtResource("1_2lgxb")
+card_id = "building tavern blue"
+display_name = "Tavern"
+tile_scene = ExtResource("3_327vq")
+texture = ExtResource("2_2lgxb")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

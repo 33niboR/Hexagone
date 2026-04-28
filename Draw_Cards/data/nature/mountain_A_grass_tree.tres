@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://dhajcnb15mfk3"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_iwn4f"]
+[ext_resource type="Texture2D" uid="uid://be7vkxwoppscl" path="res://Draw_Cards/Hexagone_Cards/nature/mountain_A_grass_tree.png" id="2_dp75u"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_dfxn1"]
+
+[resource]
+script = ExtResource("1_iwn4f")
+card_id = "mountain A grass tree"
+display_name = "Mountain"
+tile_scene = ExtResource("3_dfxn1")
+texture = ExtResource("2_dp75u")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

@@ -14,18 +14,17 @@ config/name="Hexagone"
 run/main_scene="res://Hexagone_Title_Screen/title_screen.tscn"
 config/features=PackedStringArray("4.6")
 
-[autoload]
-
-MusicManager="*res://project/autoload/music_manager.gd"
-
 [audio]
 
 buses/default_bus_layout="res://Hexagone_Title_Screen/default_bus_layout.tres"
+
+[autoload]
+
+MusicManager="*res://project/autoload/music_manager.gd"
 
 [display]
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
-window/size/mode=2
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"

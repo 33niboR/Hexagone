@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://7033opls8i6l"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_fc4vp"]
+[ext_resource type="Texture2D" uid="uid://cnbjw08tqe1ts" path="res://Draw_Cards/Hexagone_Cards/blue_building/building_blacksmith_blue.png" id="2_fc4vp"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_k76hl"]
+
+[resource]
+script = ExtResource("1_fc4vp")
+card_id = "building blacksmith blue"
+display_name = "Blacksmith"
+tile_scene = ExtResource("3_k76hl")
+texture = ExtResource("2_fc4vp")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

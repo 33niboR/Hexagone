@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://brummycp5skcw"]
+
+[ext_resource type="Script" uid="uid://70u8w8qbxpva" path="res://Draw_Cards/Card.gd" id="1_odv34"]
+[ext_resource type="Texture2D" uid="uid://c52bcgybi7cps" path="res://Draw_Cards/Hexagone_Cards/base/hex_grass.png" id="2_odv34"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wt8xf"]
+size = Vector2(258, 334)
+
+[node name="Card" type="Node2D" unique_id=1041538549]
+script = ExtResource("1_odv34")
+
+[node name="CardImage" type="Sprite2D" parent="." unique_id=359290210]
+position = Vector2(0, 1)
+scale = Vector2(0.29241073, 0.2816667)
+texture = ExtResource("2_odv34")
+
+[node name="Area2D" type="Area2D" parent="." unique_id=1567595518]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=374006741]
+position = Vector2(0, 1)
+shape = SubResource("RectangleShape2D_wt8xf")
+
+[connection signal="input_event" from="Area2D" to="." method="_on_area_2d_input_event"]
+[connection signal="mouse_entered" from="Area2D" to="." method="_on_area_2d_mouse_entered"]
+[connection signal="mouse_exited" from="Area2D" to="." method="_on_area_2d_mouse_exited"]

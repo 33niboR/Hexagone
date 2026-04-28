@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://beewty0prps3u"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_v82jn"]
+[ext_resource type="Texture2D" uid="uid://bhyr72pb7s70d" path="res://Draw_Cards/Hexagone_Cards/blue_building/building_market_blue.png" id="2_v82jn"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_p54rv"]
+
+[resource]
+script = ExtResource("1_v82jn")
+card_id = "building market blue"
+display_name = "Market"
+tile_scene = ExtResource("3_p54rv")
+texture = ExtResource("2_v82jn")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

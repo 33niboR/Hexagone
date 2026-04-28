@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://cv38n0h0occrj"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_uldvx"]
+[ext_resource type="Texture2D" uid="uid://cxr53fq301wuw" path="res://Draw_Cards/Hexagone_Cards/base/hex_grass_sloped_high.png" id="2_uldvx"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_83rix"]
+
+[resource]
+script = ExtResource("1_uldvx")
+card_id = "grass sloped high"
+display_name = "Grass Tile"
+tile_scene = ExtResource("3_83rix")
+texture = ExtResource("2_uldvx")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

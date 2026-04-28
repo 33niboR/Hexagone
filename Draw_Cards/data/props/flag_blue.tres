@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://c1ksbyau4qvy0"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_6hciy"]
+[ext_resource type="Texture2D" uid="uid://d2de8nh1xw2kf" path="res://Draw_Cards/Hexagone_Cards/props/flag_blue.png" id="2_6hciy"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_8wkh7"]
+
+[resource]
+script = ExtResource("1_6hciy")
+card_id = "flag blue"
+display_name = "Flag"
+tile_scene = ExtResource("3_8wkh7")
+texture = ExtResource("2_6hciy")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

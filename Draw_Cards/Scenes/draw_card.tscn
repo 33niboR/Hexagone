@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://wu7ope3qv0c7"]
+
+[ext_resource type="Script" uid="uid://cvb7fjfdvutti" path="res://Draw_Cards/card_manager.gd" id="1_wt8xf"]
+[ext_resource type="Script" uid="uid://dofpb32lmg0bh" path="res://Draw_Cards/PlayerHand.gd" id="2_wt8xf"]
+[ext_resource type="Script" uid="uid://ct7pxqxhhdbkt" path="res://Draw_Cards/Deck.gd" id="3_y4w3l"]
+[ext_resource type="Texture2D" uid="uid://ggjwbymciu6x" path="res://Draw_Cards/Card_Back.png" id="4_8ge36"]
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="4_pg52k"]
+[ext_resource type="Resource" uid="uid://jvb3lps2fgnr" path="res://Draw_Cards/data/base/hex_grass.tres" id="5_c4ffq"]
+[ext_resource type="Resource" uid="uid://dgl3h7oexeruq" path="res://Draw_Cards/data/base/hex_water_card.tres" id="6_doola"]
+[ext_resource type="Resource" uid="uid://ickypsmeh2ys" path="res://Draw_Cards/data/base/hex_grass_bottom.tres" id="7_mo12f"]
+[ext_resource type="Resource" uid="uid://cv38n0h0occrj" path="res://Draw_Cards/data/base/hex_grass_sloped_high.tres" id="8_3xe2o"]
+[ext_resource type="Resource" uid="uid://ddxyplpkgan84" path="res://Draw_Cards/data/blue building/building_archerrange_blue.tres" id="8_vokvu"]
+[ext_resource type="Resource" uid="uid://bsyy2oinrgask" path="res://Draw_Cards/data/blue building/building_barracks_blue.tres" id="9_1a1fi"]
+[ext_resource type="Resource" uid="uid://7033opls8i6l" path="res://Draw_Cards/data/blue building/building_blacksmith_blue.tres" id="10_v05hy"]
+[ext_resource type="Resource" uid="uid://bap866gnl2r6r" path="res://Draw_Cards/data/blue building/building_castle_blue.tres" id="11_wcid7"]
+[ext_resource type="Resource" uid="uid://b141f34ks5gal" path="res://Draw_Cards/data/blue building/building_church_blue.tres" id="12_dbx4x"]
+[ext_resource type="Resource" uid="uid://d02ali071de5y" path="res://Draw_Cards/data/blue building/building_home_A_blue.tres" id="13_uu4kl"]
+[ext_resource type="Resource" uid="uid://8jtjamjidlxd" path="res://Draw_Cards/data/blue building/building_lumbermill_blue.tres" id="14_35gdf"]
+[ext_resource type="Resource" uid="uid://beewty0prps3u" path="res://Draw_Cards/data/blue building/building_market_blue.tres" id="15_k8bge"]
+[ext_resource type="Resource" uid="uid://dooc5yyig04gh" path="res://Draw_Cards/data/blue building/building_mine_blue.tres" id="16_1suxb"]
+[ext_resource type="Resource" uid="uid://bvwfg7kgajjqp" path="res://Draw_Cards/data/blue building/building_tavern_blue.tres" id="17_8lnqm"]
+[ext_resource type="Resource" uid="uid://ce4tccbj5tsba" path="res://Draw_Cards/data/blue building/building_watermill_blue.tres" id="18_xfpsm"]
+[ext_resource type="Resource" uid="uid://4ei5d4iyv8m1" path="res://Draw_Cards/data/blue building/building_windmill_blue.tres" id="19_k11f2"]
+[ext_resource type="Resource" uid="uid://ccmpxy236ivlo" path="res://Draw_Cards/data/coast/hex_coast_A.tres" id="20_qkwqn"]
+[ext_resource type="Resource" uid="uid://0gshvlefbpiq" path="res://Draw_Cards/data/coast/hex_coast_B.tres" id="21_foyip"]
+[ext_resource type="Resource" uid="uid://bekwwoy47kto7" path="res://Draw_Cards/data/nature/hill_A_trees.tres" id="22_kqgms"]
+[ext_resource type="Resource" uid="uid://rdgu0c4firtj" path="res://Draw_Cards/data/nature/hill_B_trees.tres" id="23_xm1wb"]
+[ext_resource type="Resource" uid="uid://c05o0f7ksnaha" path="res://Draw_Cards/data/nature/hill_C_trees.tres" id="24_3cet0"]
+[ext_resource type="Resource" uid="uid://dhajcnb15mfk3" path="res://Draw_Cards/data/nature/mountain_A_grass_tree.tres" id="25_a35nl"]
+[ext_resource type="Resource" uid="uid://osftnjkvohb1" path="res://Draw_Cards/data/nature/mountain_B_grass_tree.tres" id="26_g48sy"]
+[ext_resource type="Resource" uid="uid://cupu1kdpcjmjo" path="res://Draw_Cards/data/nature/mountain_C_grass_tree.tres" id="27_4us1r"]
+[ext_resource type="Resource" uid="uid://y5ck73nnxpkn" path="res://Draw_Cards/data/nature/rock_single_A.tres" id="28_hr7pb"]
+[ext_resource type="Resource" uid="uid://ddbhpfknxfrkv" path="res://Draw_Cards/data/nature/tree_A_large.tres" id="29_0ijps"]
+[ext_resource type="Resource" uid="uid://cym6o5tk438cp" path="res://Draw_Cards/data/nature/tree_B_large.tres" id="30_rlob0"]
+[ext_resource type="Resource" uid="uid://bfxcd8urgqxjo" path="res://Draw_Cards/data/nature/waterlily_A.tres" id="31_bq2ul"]
+[ext_resource type="Resource" uid="uid://mlyfu2eitno2" path="res://Draw_Cards/data/nature/waterplant_C.tres" id="32_yspy3"]
+[ext_resource type="Resource" uid="uid://b5jfafo5gf4lh" path="res://Draw_Cards/data/props/barrel.tres" id="33_7v5ed"]
+[ext_resource type="Resource" uid="uid://1jvpwqb1hvk6" path="res://Draw_Cards/data/props/bucket_water.tres" id="34_0yuwc"]
+[ext_resource type="Resource" uid="uid://c1ksbyau4qvy0" path="res://Draw_Cards/data/props/flag_blue.tres" id="35_p6kqm"]
+[ext_resource type="Resource" uid="uid://bh48vj16awohn" path="res://Draw_Cards/data/props/tent.tres" id="36_xocbr"]
+[ext_resource type="Resource" uid="uid://yvtx0bp5yiw3" path="res://Draw_Cards/data/river/hex_river_A.tres" id="37_8hhnw"]
+[ext_resource type="Resource" uid="uid://cqw742pb6qnuc" path="res://Draw_Cards/data/river/hex_river_A_curvy.tres" id="38_nhsdy"]
+[ext_resource type="Resource" uid="uid://b2p17uuvipgyq" path="res://Draw_Cards/data/river/hex_river_B.tres" id="39_608uc"]
+[ext_resource type="Resource" uid="uid://3vrt1at6htgl" path="res://Draw_Cards/data/river/hex_river_D.tres" id="40_hmcuo"]
+[ext_resource type="Resource" uid="uid://djgfdtuyceix2" path="res://Draw_Cards/data/road/hex_road_A.tres" id="41_7eaf6"]
+[ext_resource type="Resource" uid="uid://xd8ip4ahqkma" path="res://Draw_Cards/data/road/hex_road_B.tres" id="42_e6vpv"]
+[ext_resource type="Resource" uid="uid://cam7ghbfcvmab" path="res://Draw_Cards/data/road/hex_road_D.tres" id="43_oq6ty"]
+[ext_resource type="Resource" uid="uid://d1mru4v6hdine" path="res://Draw_Cards/data/road/hex_road_E.tres" id="44_3ij68"]
+[ext_resource type="Resource" uid="uid://cv4atv5pl3qv5" path="res://Draw_Cards/data/road/hex_road_F.tres" id="45_q8mx3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_8ge36"]
+size = Vector2(238, 339)
+
+[node name="Draw Card" type="Node2D" unique_id=1084377712]
+
+[node name="CardManager" type="Node2D" parent="." unique_id=1492850914 groups=["card_manager"]]
+script = ExtResource("1_wt8xf")
+
+[node name="PlayerHand" type="Node2D" parent="." unique_id=367718973]
+visible = false
+position = Vector2(1007, 1076)
+script = ExtResource("2_wt8xf")
+
+[node name="deck" type="Node2D" parent="." unique_id=802948502 groups=["deck"]]
+position = Vector2(1790, 960)
+script = ExtResource("3_y4w3l")
+deck_data = Array[ExtResource("4_pg52k")]([ExtResource("5_c4ffq"), ExtResource("6_doola"), ExtResource("7_mo12f"), ExtResource("8_3xe2o"), ExtResource("8_vokvu"), ExtResource("9_1a1fi"), ExtResource("10_v05hy"), ExtResource("11_wcid7"), ExtResource("12_dbx4x"), ExtResource("13_uu4kl"), ExtResource("14_35gdf"), ExtResource("15_k8bge"), ExtResource("16_1suxb"), ExtResource("17_8lnqm"), ExtResource("18_xfpsm"), ExtResource("19_k11f2"), null, null, null, null, ExtResource("20_qkwqn"), ExtResource("21_foyip"), ExtResource("22_kqgms"), ExtResource("23_xm1wb"), ExtResource("24_3cet0"), ExtResource("25_a35nl"), ExtResource("26_g48sy"), ExtResource("27_4us1r"), ExtResource("28_hr7pb"), ExtResource("29_0ijps"), ExtResource("30_rlob0"), ExtResource("31_bq2ul"), ExtResource("32_yspy3"), ExtResource("33_7v5ed"), ExtResource("34_0yuwc"), ExtResource("35_p6kqm"), ExtResource("36_xocbr"), ExtResource("37_8hhnw"), ExtResource("38_nhsdy"), ExtResource("39_608uc"), ExtResource("40_hmcuo"), ExtResource("41_7eaf6"), ExtResource("42_e6vpv"), ExtResource("43_oq6ty"), ExtResource("44_3ij68"), ExtResource("45_q8mx3"), null])
+
+[node name="cardbottom" type="Sprite2D" parent="deck" unique_id=451632125]
+position = Vector2(4.196167e-05, 1.9999924)
+scale = Vector2(0.13579544, 0.14333889)
+texture = ExtResource("4_8ge36")
+
+[node name="Area2D" type="Area2D" parent="deck" unique_id=808657822]
+position = Vector2(-1, 0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="deck/Area2D" unique_id=1408858253]
+position = Vector2(1, 1)
+shape = SubResource("RectangleShape2D_8ge36")
+
+[connection signal="input_event" from="deck/Area2D" to="deck" method="_on_area_2d_input_event"]

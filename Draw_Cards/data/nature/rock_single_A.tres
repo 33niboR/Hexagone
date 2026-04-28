@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://y5ck73nnxpkn"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_kprcx"]
+[ext_resource type="Texture2D" uid="uid://beopw2pt3pio0" path="res://Draw_Cards/Hexagone_Cards/nature/rock_single_A.png" id="2_kprcx"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_h1xky"]
+
+[resource]
+script = ExtResource("1_kprcx")
+card_id = "rock single A"
+display_name = "Rock"
+tile_scene = ExtResource("3_h1xky")
+texture = ExtResource("2_kprcx")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

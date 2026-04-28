@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://yvtx0bp5yiw3"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_n32i5"]
+[ext_resource type="Texture2D" uid="uid://ckjockbyqlmoi" path="res://Draw_Cards/Hexagone_Cards/river/hex_river_A.png" id="2_tcrh5"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_iirob"]
+
+[resource]
+script = ExtResource("1_n32i5")
+card_id = "hex river A"
+display_name = "River"
+tile_scene = ExtResource("3_iirob")
+texture = ExtResource("2_tcrh5")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

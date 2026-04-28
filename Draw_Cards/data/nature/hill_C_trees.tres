@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://c05o0f7ksnaha"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_qdb3r"]
+[ext_resource type="Texture2D" uid="uid://cey3h735b0u5l" path="res://Draw_Cards/Hexagone_Cards/nature/hills_C_trees.png" id="2_qdb3r"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_w8rvm"]
+
+[resource]
+script = ExtResource("1_qdb3r")
+card_id = "hiils C trees"
+display_name = "Hills Tile"
+tile_scene = ExtResource("3_w8rvm")
+texture = ExtResource("2_qdb3r")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"

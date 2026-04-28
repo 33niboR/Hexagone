@@ -6,3 +6,4 @@ class_name CardData
 @export var tile_scene: PackedScene
 @export var weight: int = 1
 @export var unlock_level: int = 1
+@export var texture: Texture2D

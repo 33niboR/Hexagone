@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://b5jfafo5gf4lh"]
+
+[ext_resource type="Script" uid="uid://det0bi8kx1j6c" path="res://project/scripts/cards/card_data.gd" id="1_1kygo"]
+[ext_resource type="Texture2D" uid="uid://reyydbvhbro8" path="res://Draw_Cards/Hexagone_Cards/props/barrel.png" id="2_qghty"]
+[ext_resource type="PackedScene" uid="uid://ca53kl3ufodrm" path="res://project/scenes/tiles/hex_tile.tscn" id="3_1op6x"]
+
+[resource]
+script = ExtResource("1_1kygo")
+card_id = "barrel"
+display_name = "Barrel"
+tile_scene = ExtResource("3_1op6x")
+texture = ExtResource("2_qghty")
+metadata/_custom_type_script = "uid://det0bi8kx1j6c"
