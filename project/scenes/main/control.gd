@@ -92,6 +92,7 @@ const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 var is_placing: bool = false
 var current_active_model: Node3D = null 
 var current_source_card: Node2D = null
+var current_rotation_steps: int = 0
 var placeable_previews: Array[Node3D] = []
 var card_placeable_previews: Dictionary = {}
 var terrain_cells: Dictionary = {}
@@ -138,6 +139,8 @@ func _start_placement(target_model: Node3D):
 		
 	is_placing = true
 	current_active_model = target_model
+	current_rotation_steps = 0
+	current_active_model.rotation_degrees.y = 0.0
 	current_active_model.show()
 	
 	var focus_owner = get_viewport().gui_get_focus_owner()
@@ -184,6 +187,11 @@ func _unhandled_input(event):
 	if not is_placing or not current_active_model:
 		return
 
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
+		_rotate_current_placement()
+		get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_place_item(current_active_model.global_position)
@@ -214,10 +222,15 @@ func _place_item(pos: Vector3):
 	_consume_source_card()
 	_cancel_placement()
 
+func _rotate_current_placement() -> void:
+	current_rotation_steps = (current_rotation_steps + 1) % 6
+	current_active_model.rotation_degrees.y = float(current_rotation_steps) * 60.0
+
 func _cancel_placement():
 	is_placing = false
 	_hide_all_previews() 
 	current_active_model = null
+	current_rotation_steps = 0
 	if current_source_card != null and is_instance_valid(current_source_card):
 		_clear_card_manager_selection(current_source_card)
 		current_source_card.show()
@@ -315,6 +328,17 @@ func _terrain_accepts_object(cell: Vector2i, placeable: Node3D = null) -> bool:
 		return true
 	return str(terrain_types.get(cell, TERRAIN_WATER)) == required_terrain
 
+func get_available_build_tile_count() -> int:
+	var available_count := 0
+	for cell_key in terrain_cells.keys():
+		var cell: Vector2i = cell_key
+		if object_cells.has(cell):
+			continue
+		if str(terrain_types.get(cell, TERRAIN_WATER)) != TERRAIN_LAND:
+			continue
+		available_count += 1
+	return available_count
+
 func _get_placement_layer(placeable: Node3D) -> String:
 	if placeable.has_meta("placement_layer"):
 		return str(placeable.get_meta("placement_layer"))
@@ -348,7 +372,7 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	if definition.is_empty():
 		return null
 
-	var cache_key: String = str(definition["mesh_path"]) + "|" + str(definition["placement_layer"]) + "|" + str(definition.get("terrain_type", TERRAIN_LAND)) + "|" + str(definition.get("terrain_requirement", TERRAIN_ANY))
+	var cache_key: String = str(definition["mesh_path"]) + "|" + str(definition["placement_layer"]) + "|" + str(definition.get("terrain_type", TERRAIN_LAND)) + "|" + str(definition.get("terrain_requirement", TERRAIN_ANY)) + "|" + str(definition.get("scale", 2.0))
 	if card_placeable_previews.has(cache_key):
 		return card_placeable_previews[cache_key]
 
@@ -360,7 +384,8 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	var preview := MeshInstance3D.new()
 	preview.name = _safe_node_name(str(card_data.display_name))
 	preview.mesh = mesh_resource as Mesh
-	preview.scale = Vector3(2.0, 2.0, 2.0)
+	var preview_scale := float(definition.get("scale", 2.0))
+	preview.scale = Vector3(preview_scale, preview_scale, preview_scale)
 	build_preview_node.add_child(preview)
 	_register_placeable_preview(preview, str(definition["placement_layer"]), str(definition.get("terrain_type", TERRAIN_LAND)))
 	if definition.has("terrain_requirement"):
@@ -408,7 +433,7 @@ func _get_card_placeable_definition(card_data: CardData) -> Dictionary:
 	if key.contains("rock"):
 		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND)
 	if key.contains("barrel"):
-		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND)
+		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND, 4.5)
 	if key.contains("bucket"):
 		return _object_definition(ASSET_ROOT + "decoration/props/bucket_water.obj", TERRAIN_LAND)
 	if key.contains("tent"):
@@ -425,11 +450,12 @@ func _terrain_definition(mesh_path: String, terrain_type: String) -> Dictionary:
 		"terrain_type": terrain_type
 	}
 
-func _object_definition(mesh_path: String, terrain_requirement: String) -> Dictionary:
+func _object_definition(mesh_path: String, terrain_requirement: String, scale: float = 2.0) -> Dictionary:
 	return {
 		"mesh_path": mesh_path,
 		"placement_layer": PLACEMENT_OBJECT,
-		"terrain_requirement": terrain_requirement
+		"terrain_requirement": terrain_requirement,
+		"scale": scale
 	}
 
 func _lettered_tile_path(key: String, tile_type: String, prefix: String, suffix: String) -> String:
@@ -588,7 +614,7 @@ func _create_controls_panel() -> VBoxContainer:
 	panel.add_theme_constant_override("separation", 4)
 
 	var controls_text := Label.new()
-	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card\nRight click - Cancel placement\nF11 - Toggle fullscreen\nEsc - Toggle menu"
+	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card\nSpace - Rotate selected card\nRight click - Cancel placement\nF11 - Toggle fullscreen\nEsc - Toggle menu"
 	controls_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_apply_menu_label_style(controls_text)
 	panel.add_child(controls_text)

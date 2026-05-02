@@ -5,6 +5,7 @@ const WindowModeHelper = preload("res://project/scripts/core/window_mode.gd")
 @onready var main_button: VBoxContainer = $Main_Button
 @onready var options_button: Panel = $Options_Button
 @onready var help_panel: Control = $Help_Panel
+@onready var resolution_option: OptionButton = $Options_Button/VBoxContainer/Resolution
 
 
 
@@ -33,6 +34,7 @@ func _on_option_pressed() -> void:
 	print("Setting pressed")
 	main_button.visible = false
 	options_button.visible = true
+	_sync_resolution_option()
 	
 func _on_help_pressed() -> void:
 	print("Help pressed")
@@ -48,3 +50,8 @@ func _on_back_options_pressed() -> void:
 
 func _toggle_fullscreen() -> void:
 	WindowModeHelper.toggle_fullscreen()
+	_sync_resolution_option()
+
+func _sync_resolution_option() -> void:
+	if resolution_option != null and resolution_option.has_method("sync_to_window_mode"):
+		resolution_option.call("sync_to_window_mode")

@@ -729,7 +729,7 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_owrtr")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_jugfl")
 theme_override_styles/hover = SubResource("StyleBoxFlat_abs4g")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_jugfl")
-text = "Instructions"
+text = "Controls"
 
 [node name="Exit" type="Button" parent="Main_Button" unique_id=1113234189]
 layout_mode = 2
@@ -898,9 +898,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -268.0
-offset_top = -168.0
+offset_top = -95.0
 offset_right = 262.0
-offset_bottom = 276.0
+offset_bottom = 335.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -914,8 +914,8 @@ offset_right = 3.0
 offset_bottom = 90.0
 grow_horizontal = 2
 theme_override_fonts/font = ExtResource("3_el5ja")
-theme_override_font_sizes/font_size = 70
-text = "Instructions"
+theme_override_font_sizes/font_size = 64
+text = "Controls"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -927,9 +927,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -125.0
-offset_top = 165.0
+offset_top = 190.0
 offset_right = 125.0
-offset_bottom = 217.0
+offset_bottom = 242.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_vertical = 3
@@ -951,26 +951,27 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -226.0
-offset_top = -131.0
+offset_top = -68.0
 offset_right = 231.0
-offset_bottom = 136.0
+offset_bottom = 92.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 0
 
 [node name="instruction" type="Label" parent="Help_Panel/VBoxContainer" unique_id=339249120]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("4_eq8hc")
-theme_override_font_sizes/font_size = 30
-text = "WASD : Move View 
-
-Q / E : Rotate Camera 
-
-R / F : Tilt Angle 
-
-Mouse Wheel : Zoom In / Out 
-
-X Key : Reset to Default"
+theme_override_font_sizes/font_size = 24
+text = "WASD - Move camera
+Mouse wheel - Zoom
+Q/E - Rotate
+R/F - Tilt
+X - Reset camera
+Left click - Place selected card
+Space - Rotate selected card
+Right click - Cancel placement
+F11 - Toggle fullscreen
+Esc - Toggle menu"
 
 [connection signal="pressed" from="Main_Button/Start Game" to="." method="_on_start_game_pressed"]
 [connection signal="pressed" from="Main_Button/Option" to="." method="_on_option_pressed"]

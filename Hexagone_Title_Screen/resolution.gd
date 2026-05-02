@@ -9,7 +9,11 @@ func _ready():
 	add_item("Fullscreen", 1)
 	
 	# 2. Set the button's visual state to match your current window mode
-	selected = 1 if WindowModeHelper.is_fullscreen() else 0
+	sync_to_window_mode()
+
+func _process(_delta: float) -> void:
+	if is_visible_in_tree():
+		sync_to_window_mode()
 
 func _on_item_selected(index: int):
 	match index:
@@ -19,4 +23,7 @@ func _on_item_selected(index: int):
 		1: # Fullscreen Mode
 			WindowModeHelper.set_fullscreen(true)
 
+	sync_to_window_mode()
+
+func sync_to_window_mode() -> void:
 	selected = 1 if WindowModeHelper.is_fullscreen() else 0

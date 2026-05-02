@@ -25,6 +25,8 @@ func _ready() -> void:
 	_player.bus = MUSIC_BUS
 	_player.stream = MUSIC_STREAM
 	_player.process_mode = Node.PROCESS_MODE_ALWAYS
+	_configure_music_loop()
+	_player.finished.connect(_ensure_music_playing)
 	add_child(_player)
 	_ensure_music_playing()
 	get_tree().node_added.connect(_register_ui_node)
@@ -39,6 +41,15 @@ func _ensure_music_playing() -> void:
 
 func play_music() -> void:
 	_ensure_music_playing()
+
+
+func _configure_music_loop() -> void:
+	var wav_stream := MUSIC_STREAM as AudioStreamWAV
+	if wav_stream == null:
+		return
+	wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav_stream.loop_begin = 0
+	wav_stream.loop_end = wav_stream.data.size() / (4 if wav_stream.stereo else 2)
 
 
 func stop_music() -> void:
