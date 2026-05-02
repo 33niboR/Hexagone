@@ -45,5 +45,6 @@ func _on_area_2d_mouse_exited() -> void:
 	hovered_off.emit(self)
 
 func _on_area_2d_input_event(viewport, event, shape_idx) -> void:
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		card_selected.emit(self)
+		viewport.set_input_as_handled()

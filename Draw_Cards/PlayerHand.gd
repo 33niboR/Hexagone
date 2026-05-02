@@ -51,6 +51,10 @@ func add_card_to_hand(card: Node2D) -> void:
 	hand.append(card)
 	update_hand_positions()
 
+func remove_card(card: Node2D) -> void:
+	hand.erase(card)
+	update_hand_positions()
+
 func update_hand_positions() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	

@@ -31,3 +31,15 @@ func on_card_selected(card):
 	card_being_dragged = card
 	# Drag scale (slightly bigger than hover)
 	card.scale = card.base_scale * 1.3
+	
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("start_card_placement"):
+		placement_controller.start_card_placement(card)
+
+func clear_selected_card(card: Node2D = null) -> void:
+	if card == null or card_being_dragged == card:
+		card_being_dragged = null
+	if card == null or current_hovered == card:
+		current_hovered = null
+	if card != null and is_instance_valid(card):
+		card.scale = card.base_scale

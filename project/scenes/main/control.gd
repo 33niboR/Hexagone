@@ -1,6 +1,9 @@
 extends Control
 
 const HexGrid = preload("res://project/scripts/grid/hex_grid.gd")
+const WindowModeHelper = preload("res://project/scripts/core/window_mode.gd")
+const MENU_BUTTON_FONT: FontFile = preload("res://Hexagone_Title_Screen/Fonts/alagard/alagard.ttf")
+const MENU_TITLE_FONT: FontFile = preload("res://Hexagone_Title_Screen/Fonts/thaleahfat/ThaleahFat.ttf")
 const CARD_WIDTH: float = 170.0
 const CARD_HEIGHT: float = 150.0
 const CARD_LEFT: float = 14.0
@@ -13,6 +16,13 @@ const PLACEMENT_TERRAIN: String = "terrain"
 const PLACEMENT_OBJECT: String = "object"
 const TERRAIN_LAND: String = "land"
 const TERRAIN_WATER: String = "water"
+const TERRAIN_ANY: String = "any"
+const ASSET_ROOT: String = "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/"
+const MENU_WIDTH: float = 360.0
+const MENU_BUTTON_NORMAL := Color(0.27058825, 0.3529412, 0.39215687, 1.0)
+const MENU_BUTTON_PRESSED := Color(0.14901961, 0.19607843, 0.21960784, 1.0)
+const MENU_BUTTON_HOVER := Color(0.47058824, 0.5647059, 0.6117647, 1.0)
+const MENU_FONT_COLOR := Color(0.9254902, 0.9372549, 0.94509804, 1.0)
 const AXIAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(1, 0),
 	Vector2i(1, -1),
@@ -72,35 +82,45 @@ const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 @onready var preview_building: Node3D = get_node("/root/Main/BuildPreview/building")
 @onready var preview_river: Node3D = get_node("/root/Main/BuildPreview/river")
 @onready var preview_grass: Node3D = get_node("/root/Main/BuildPreview/grass")
-@onready var building_button: Button = get_node("/root/Main/card system/Control/building")
-@onready var river_button: Button = get_node("/root/Main/card system/Control/river")
-@onready var grass_button: Button = get_node("/root/Main/card system/Control/grass")
+@onready var building_button: Button = get_node_or_null("/root/Main/card system/Control/building")
+@onready var river_button: Button = get_node_or_null("/root/Main/card system/Control/river")
+@onready var grass_button: Button = get_node_or_null("/root/Main/card system/Control/grass")
 @onready var build_preview_node: Node3D = get_node("/root/Main/BuildPreview")
 @onready var world_node: Node3D = get_node("/root/Main/World")
 @onready var hex_grid: HexGrid = HexGrid.new()
 
 var is_placing: bool = false
 var current_active_model: Node3D = null 
+var current_source_card: Node2D = null
 var placeable_previews: Array[Node3D] = []
+var card_placeable_previews: Dictionary = {}
 var terrain_cells: Dictionary = {}
 var object_cells: Dictionary = {}
 var terrain_types: Dictionary = {}
+var menu_panel: PanelContainer = null
+var settings_panel: VBoxContainer = null
+var controls_panel: VBoxContainer = null
+var menu_buttons_panel: VBoxContainer = null
+var resolution_option: OptionButton = null
 
 func _ready():
-	building_button.hide()
-	river_button.hide()
-	grass_button.hide()
+	add_to_group("placement_controller")
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if building_button:
+		building_button.hide()
+	if river_button:
+		river_button.hide()
+	if grass_button:
+		grass_button.hide()
 
 	_seed_existing_terrain_cells()
 	placeable_previews.clear()
 	_register_placeable_preview(preview_building, PLACEMENT_OBJECT)
 	_register_placeable_preview(preview_river, PLACEMENT_TERRAIN, TERRAIN_WATER)
 	_register_placeable_preview(preview_grass, PLACEMENT_TERRAIN, TERRAIN_LAND)
-	_create_placeable_card("Archery Range", preview_building, 0)
-	_create_placeable_card("River Tile", preview_river, 1)
-	_create_placeable_card("Grass Tile", preview_grass, 2)
 	_create_additional_placeables()
 	_hide_all_previews()
+	_create_ingame_menu()
 
 
 func _on_building_pressed():
@@ -124,12 +144,43 @@ func _start_placement(target_model: Node3D):
 	if focus_owner:
 		focus_owner.release_focus()
 
+func start_card_placement(card: Node2D) -> void:
+	if card == null:
+		return
+	var card_data := card.get("data") as CardData
+	if card_data == null:
+		return
+	if is_placing:
+		_cancel_placement()
+
+	var preview := _get_or_create_card_preview(card_data)
+	if preview == null:
+		push_warning("No placeable mesh found for card: " + str(card_data.display_name))
+		return
+
+	current_source_card = card
+	current_source_card.hide()
+	_start_placement(preview)
+
 func _process(_delta):
 	if is_placing and current_active_model:
 		var target_pos: Vector3 = _get_snapped_mouse_position()
 		current_active_model.global_position = target_pos
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
+		_toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_toggle_ingame_menu()
+		get_viewport().set_input_as_handled()
+		return
+
 func _unhandled_input(event):
+	if menu_panel != null and menu_panel.visible:
+		return
+
 	if not is_placing or not current_active_model:
 		return
 
@@ -160,12 +211,17 @@ func _place_item(pos: Vector3):
 	
 	print("placement successful: ", current_active_model.name)
 	_play_place_sfx()
+	_consume_source_card()
 	_cancel_placement()
 
 func _cancel_placement():
 	is_placing = false
 	_hide_all_previews() 
 	current_active_model = null
+	if current_source_card != null and is_instance_valid(current_source_card):
+		_clear_card_manager_selection(current_source_card)
+		current_source_card.show()
+	current_source_card = null
 	print("closed")
 
 func _hide_all_previews():
@@ -194,8 +250,6 @@ func _create_additional_placeables() -> void:
 		build_preview_node.add_child(preview)
 		_register_placeable_preview(preview, placement_layer, terrain_type)
 
-		_create_placeable_card(label, preview, index + 3)
-
 func _register_placeable_preview(preview: Node3D, placement_layer: String, terrain_type: String = TERRAIN_LAND) -> void:
 	preview.set_meta("placement_layer", placement_layer)
 	if placement_layer == PLACEMENT_TERRAIN:
@@ -222,7 +276,7 @@ func _can_place_at(cell: Vector2i, placement_layer: String) -> bool:
 	if placement_layer == PLACEMENT_TERRAIN:
 		return not terrain_cells.has(cell) and _has_adjacent_terrain(cell)
 	if placement_layer == PLACEMENT_OBJECT:
-		return terrain_cells.has(cell) and _terrain_accepts_object(cell) and not object_cells.has(cell)
+		return terrain_cells.has(cell) and _terrain_accepts_object(cell, current_active_model) and not object_cells.has(cell)
 	return false
 
 func _get_invalid_placement_reason(cell: Vector2i, placement_layer: String) -> String:
@@ -234,8 +288,8 @@ func _get_invalid_placement_reason(cell: Vector2i, placement_layer: String) -> S
 	if placement_layer == PLACEMENT_OBJECT:
 		if not terrain_cells.has(cell):
 			return "objects must be placed on an existing tile"
-		if not _terrain_accepts_object(cell):
-			return "objects cannot be placed on water"
+		if not _terrain_accepts_object(cell, current_active_model):
+			return "object cannot be placed on this terrain"
 		if object_cells.has(cell):
 			return "tile already has an object"
 	return "unknown placeable type"
@@ -253,8 +307,13 @@ func _register_placed_item(cell: Vector2i, placement_layer: String, item: Node3D
 	elif placement_layer == PLACEMENT_OBJECT:
 		object_cells[cell] = item
 
-func _terrain_accepts_object(cell: Vector2i) -> bool:
-	return str(terrain_types.get(cell, TERRAIN_WATER)) == TERRAIN_LAND
+func _terrain_accepts_object(cell: Vector2i, placeable: Node3D = null) -> bool:
+	var required_terrain: String = TERRAIN_LAND
+	if placeable != null and placeable.has_meta("terrain_requirement"):
+		required_terrain = str(placeable.get_meta("terrain_requirement"))
+	if required_terrain == TERRAIN_ANY:
+		return true
+	return str(terrain_types.get(cell, TERRAIN_WATER)) == required_terrain
 
 func _get_placement_layer(placeable: Node3D) -> String:
 	if placeable.has_meta("placement_layer"):
@@ -265,6 +324,374 @@ func _get_terrain_type(placeable: Node3D) -> String:
 	if placeable.has_meta("terrain_type"):
 		return str(placeable.get_meta("terrain_type"))
 	return TERRAIN_LAND
+
+func _consume_source_card() -> void:
+	if current_source_card == null or not is_instance_valid(current_source_card):
+		current_source_card = null
+		return
+
+	var player_hand := get_tree().get_first_node_in_group("player_hand")
+	if player_hand != null and player_hand.has_method("remove_card"):
+		player_hand.remove_card(current_source_card)
+
+	_clear_card_manager_selection(current_source_card)
+	current_source_card.queue_free()
+	current_source_card = null
+
+func _clear_card_manager_selection(card: Node2D) -> void:
+	var card_manager := get_tree().get_first_node_in_group("card_manager")
+	if card_manager != null and card_manager.has_method("clear_selected_card"):
+		card_manager.clear_selected_card(card)
+
+func _get_or_create_card_preview(card_data: CardData) -> Node3D:
+	var definition := _get_card_placeable_definition(card_data)
+	if definition.is_empty():
+		return null
+
+	var cache_key: String = str(definition["mesh_path"]) + "|" + str(definition["placement_layer"]) + "|" + str(definition.get("terrain_type", TERRAIN_LAND)) + "|" + str(definition.get("terrain_requirement", TERRAIN_ANY))
+	if card_placeable_previews.has(cache_key):
+		return card_placeable_previews[cache_key]
+
+	var mesh_resource: Resource = load(str(definition["mesh_path"]))
+	if not (mesh_resource is Mesh):
+		push_warning("Card mesh failed to load: " + str(definition["mesh_path"]))
+		return null
+
+	var preview := MeshInstance3D.new()
+	preview.name = _safe_node_name(str(card_data.display_name))
+	preview.mesh = mesh_resource as Mesh
+	preview.scale = Vector3(2.0, 2.0, 2.0)
+	build_preview_node.add_child(preview)
+	_register_placeable_preview(preview, str(definition["placement_layer"]), str(definition.get("terrain_type", TERRAIN_LAND)))
+	if definition.has("terrain_requirement"):
+		preview.set_meta("terrain_requirement", str(definition["terrain_requirement"]))
+	preview.hide()
+	card_placeable_previews[cache_key] = preview
+	return preview
+
+func _get_card_placeable_definition(card_data: CardData) -> Dictionary:
+	var card_id: String = str(card_data.card_id).strip_edges().to_lower()
+	var display_name: String = str(card_data.display_name).strip_edges().to_lower()
+	var texture_path: String = ""
+	if card_data.texture != null:
+		texture_path = str(card_data.texture.resource_path).to_lower()
+	var key: String = (card_id + " " + display_name + " " + texture_path).replace("  ", " ")
+
+	if key.contains("mountain"):
+		return _object_definition(_nature_mesh_path(key, "mountain", "mountain_A_grass_trees"), TERRAIN_LAND)
+	if key.contains("waterlily"):
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterlily_A.obj", TERRAIN_WATER)
+	if key.contains("waterplant"):
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterplant_C.obj", TERRAIN_WATER)
+	if key.contains("grass bottom"):
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_bottom.obj", TERRAIN_LAND)
+	if key.contains("grass sloped high"):
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_sloped_high.obj", TERRAIN_LAND)
+	if key.contains("grass"):
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND)
+	if key.contains("water") and not key.contains("bucket") and not key.contains("watermill"):
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_water.obj", TERRAIN_WATER)
+	if key.contains("coastb") or key.contains("coast b"):
+		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_B.obj", TERRAIN_WATER)
+	if key.contains("coasta") or key.contains("coast a") or key.contains("coast"):
+		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_A.obj", TERRAIN_WATER)
+	if key.contains("river"):
+		return _terrain_definition(_lettered_tile_path(key, "river", ASSET_ROOT + "tiles/rivers/hex_river_", ".obj"), TERRAIN_WATER)
+	if key.contains("road"):
+		return _terrain_definition(_lettered_tile_path(key, "road", ASSET_ROOT + "tiles/roads/hex_road_", ".obj"), TERRAIN_LAND)
+	if key.contains("building"):
+		return _object_definition(_building_mesh_path(key), TERRAIN_LAND)
+	if key.contains("hill"):
+		return _object_definition(_nature_mesh_path(key, "hills", "hills_A_trees"), TERRAIN_LAND)
+	if key.contains("tree"):
+		return _object_definition(_nature_mesh_path(key, "tree", "trees_A_large"), TERRAIN_LAND)
+	if key.contains("rock"):
+		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND)
+	if key.contains("barrel"):
+		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND)
+	if key.contains("bucket"):
+		return _object_definition(ASSET_ROOT + "decoration/props/bucket_water.obj", TERRAIN_LAND)
+	if key.contains("tent"):
+		return _object_definition(ASSET_ROOT + "decoration/props/tent.obj", TERRAIN_LAND)
+	if key.contains("flag"):
+		return _object_definition(ASSET_ROOT + "decoration/props/flag_blue.obj", TERRAIN_LAND)
+
+	return {}
+
+func _terrain_definition(mesh_path: String, terrain_type: String) -> Dictionary:
+	return {
+		"mesh_path": mesh_path,
+		"placement_layer": PLACEMENT_TERRAIN,
+		"terrain_type": terrain_type
+	}
+
+func _object_definition(mesh_path: String, terrain_requirement: String) -> Dictionary:
+	return {
+		"mesh_path": mesh_path,
+		"placement_layer": PLACEMENT_OBJECT,
+		"terrain_requirement": terrain_requirement
+	}
+
+func _lettered_tile_path(key: String, tile_type: String, prefix: String, suffix: String) -> String:
+	var letter := "A"
+	for candidate in ["a", "b", "c", "d", "e", "f"]:
+		if key.contains(tile_type + " " + candidate):
+			letter = candidate.to_upper()
+			break
+	var variant := ""
+	if key.contains("curvy"):
+		variant = "_curvy"
+	return prefix + letter + variant + suffix
+
+func _building_mesh_path(key: String) -> String:
+	var building_name := "archeryrange"
+	for candidate in ["barracks", "blacksmith", "castle", "church", "lumbermill", "market", "mine", "tavern", "watermill", "windmill"]:
+		if key.contains(candidate):
+			building_name = candidate
+			break
+	if key.contains("home") or key.contains("house"):
+		building_name = "home_A"
+	return ASSET_ROOT + "buildings/blue/building_" + building_name + "_blue.obj"
+
+func _nature_mesh_path(key: String, prefix: String, fallback: String) -> String:
+	var letter := "A"
+	for candidate in ["a", "b", "c"]:
+		if key.contains(" " + candidate + " "):
+			letter = candidate.to_upper()
+			break
+	if prefix == "mountain":
+		return ASSET_ROOT + "decoration/nature/mountain_" + letter + "_grass_trees.obj"
+	return ASSET_ROOT + "decoration/nature/hills_" + letter + "_trees.obj" if prefix == "hills" else ASSET_ROOT + "decoration/nature/" + fallback + ".obj"
+
+func _safe_node_name(label: String) -> String:
+	return label.replace(" ", "").replace("/", "")
+
+func _toggle_fullscreen() -> void:
+	WindowModeHelper.toggle_fullscreen()
+	_sync_resolution_option()
+
+func _create_ingame_menu() -> void:
+	var menu_button := Button.new()
+	menu_button.name = "MenuButton"
+	menu_button.text = "Menu"
+	menu_button.tooltip_text = "Open menu"
+	menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	menu_button.anchor_left = 1.0
+	menu_button.anchor_right = 1.0
+	menu_button.offset_left = -118.0
+	menu_button.offset_top = 18.0
+	menu_button.offset_right = -18.0
+	menu_button.offset_bottom = 54.0
+	_apply_menu_button_style(menu_button, 26)
+	menu_button.pressed.connect(_toggle_ingame_menu)
+	add_child(menu_button)
+
+	menu_panel = PanelContainer.new()
+	menu_panel.name = "InGameMenu"
+	menu_panel.visible = false
+	menu_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	menu_panel.anchor_left = 0.5
+	menu_panel.anchor_top = 0.5
+	menu_panel.anchor_right = 0.5
+	menu_panel.anchor_bottom = 0.5
+	menu_panel.offset_left = -MENU_WIDTH / 2.0
+	menu_panel.offset_top = -250.0
+	menu_panel.offset_right = MENU_WIDTH / 2.0
+	menu_panel.offset_bottom = 250.0
+	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	add_child(menu_panel)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 14)
+	menu_panel.add_child(layout)
+
+	var title := Label.new()
+	title.text = "Menu"
+	title.add_theme_font_override("font", MENU_TITLE_FONT)
+	title.add_theme_font_size_override("font_size", 64)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(title)
+
+	menu_buttons_panel = VBoxContainer.new()
+	menu_buttons_panel.add_theme_constant_override("separation", 14)
+	layout.add_child(menu_buttons_panel)
+
+	var resume_button := _create_menu_button("Resume")
+	resume_button.pressed.connect(_hide_ingame_menu)
+	menu_buttons_panel.add_child(resume_button)
+
+	var settings_button := _create_menu_button("Settings")
+	settings_button.pressed.connect(_show_menu_section.bind("settings"))
+	menu_buttons_panel.add_child(settings_button)
+
+	var controls_button := _create_menu_button("Controls")
+	controls_button.pressed.connect(_show_menu_section.bind("controls"))
+	menu_buttons_panel.add_child(controls_button)
+
+	var exit_button := _create_menu_button("Exit Game")
+	exit_button.pressed.connect(_exit_game)
+	menu_buttons_panel.add_child(exit_button)
+
+	settings_panel = _create_settings_panel()
+	layout.add_child(settings_panel)
+
+	controls_panel = _create_controls_panel()
+	layout.add_child(controls_panel)
+
+	_show_menu_section("")
+
+func _create_menu_button(label: String) -> Button:
+	var button := Button.new()
+	button.text = label
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	button.custom_minimum_size = Vector2(0.0, 52.0)
+	_apply_menu_button_style(button, 30)
+	return button
+
+func _create_settings_panel() -> VBoxContainer:
+	var panel := VBoxContainer.new()
+	panel.add_theme_constant_override("separation", 8)
+
+	var screen_label := Label.new()
+	screen_label.text = "Screen:"
+	_apply_menu_label_style(screen_label)
+	panel.add_child(screen_label)
+
+	resolution_option = OptionButton.new()
+	resolution_option.add_item("Windowed", 0)
+	resolution_option.add_item("Fullscreen", 1)
+	_apply_menu_button_style(resolution_option, 24)
+	resolution_option.item_selected.connect(_on_resolution_selected)
+	panel.add_child(resolution_option)
+	_sync_resolution_option()
+
+	var music_label := Label.new()
+	music_label.text = "Music:"
+	_apply_menu_label_style(music_label)
+	panel.add_child(music_label)
+	panel.add_child(_create_volume_slider("Music"))
+
+	var sfx_label := Label.new()
+	sfx_label.text = "SFX:"
+	_apply_menu_label_style(sfx_label)
+	panel.add_child(sfx_label)
+	panel.add_child(_create_volume_slider("SFX"))
+
+	var back_button := _create_menu_button("Back")
+	back_button.pressed.connect(_show_menu_section.bind(""))
+	panel.add_child(back_button)
+
+	return panel
+
+func _create_controls_panel() -> VBoxContainer:
+	var panel := VBoxContainer.new()
+	panel.add_theme_constant_override("separation", 4)
+
+	var controls_text := Label.new()
+	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card\nRight click - Cancel placement\nF11 - Toggle fullscreen\nEsc - Toggle menu"
+	controls_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_apply_menu_label_style(controls_text)
+	panel.add_child(controls_text)
+
+	var back_button := _create_menu_button("Back")
+	back_button.pressed.connect(_show_menu_section.bind(""))
+	panel.add_child(back_button)
+
+	return panel
+
+func _create_volume_slider(bus_name: String) -> HSlider:
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.value = _get_bus_volume_linear(bus_name)
+	slider.value_changed.connect(_set_bus_volume.bind(bus_name))
+	return slider
+
+func _toggle_ingame_menu() -> void:
+	if menu_panel == null:
+		return
+	menu_panel.visible = not menu_panel.visible
+	if menu_panel.visible:
+		_sync_resolution_option()
+
+func _hide_ingame_menu() -> void:
+	if menu_panel != null:
+		menu_panel.visible = false
+
+func _show_menu_section(section: String) -> void:
+	if menu_buttons_panel != null:
+		menu_buttons_panel.visible = section == ""
+	if settings_panel != null:
+		settings_panel.visible = section == "settings"
+	if controls_panel != null:
+		controls_panel.visible = section == "controls"
+
+func _on_resolution_selected(index: int) -> void:
+	if index == 0:
+		WindowModeHelper.set_fullscreen(false)
+	elif index == 1:
+		WindowModeHelper.set_fullscreen(true)
+	_sync_resolution_option()
+
+func _sync_resolution_option() -> void:
+	if resolution_option == null:
+		return
+	resolution_option.select(1 if WindowModeHelper.is_fullscreen() else 0)
+
+func _apply_menu_button_style(button: BaseButton, font_size: int) -> void:
+	button.add_theme_color_override("font_color", MENU_FONT_COLOR)
+	button.add_theme_font_override("font", MENU_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_stylebox_override("normal", _make_button_style(MENU_BUTTON_NORMAL))
+	button.add_theme_stylebox_override("pressed", _make_button_style(MENU_BUTTON_PRESSED))
+	button.add_theme_stylebox_override("hover", _make_button_style(MENU_BUTTON_HOVER))
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+func _apply_menu_label_style(label: Label, font_size: int = 24) -> void:
+	label.add_theme_color_override("font_color", MENU_FONT_COLOR)
+	label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	label.add_theme_font_size_override("font_size", font_size)
+
+func _make_button_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.corner_radius_top_left = 15
+	style.corner_radius_top_right = 15
+	style.corner_radius_bottom_right = 15
+	style.corner_radius_bottom_left = 15
+	style.shadow_color = MENU_BUTTON_HOVER
+	style.shadow_size = 5
+	return style
+
+func _make_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.065, 0.075, 0.78)
+	style.content_margin_left = 22.0
+	style.content_margin_top = 18.0
+	style.content_margin_right = 22.0
+	style.content_margin_bottom = 18.0
+	return style
+
+func _get_bus_volume_linear(bus_name: String) -> float:
+	var bus_id := AudioServer.get_bus_index(bus_name)
+	if bus_id == -1 or AudioServer.is_bus_mute(bus_id):
+		return 0.0
+	return db_to_linear(AudioServer.get_bus_volume_db(bus_id))
+
+func _set_bus_volume(value: float, bus_name: String) -> void:
+	var bus_id := AudioServer.get_bus_index(bus_name)
+	if bus_id == -1:
+		return
+	if is_zero_approx(value):
+		AudioServer.set_bus_mute(bus_id, true)
+		AudioServer.set_bus_volume_db(bus_id, -80.0)
+		return
+	AudioServer.set_bus_mute(bus_id, false)
+	AudioServer.set_bus_volume_db(bus_id, linear_to_db(value))
+
+func _exit_game() -> void:
+	get_tree().quit()
 
 func _play_place_sfx() -> void:
 	var music_manager: Node = get_node_or_null("/root/MusicManager")

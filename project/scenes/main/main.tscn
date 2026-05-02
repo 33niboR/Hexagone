@@ -6,6 +6,7 @@
 [ext_resource type="ArrayMesh" uid="uid://fsuv3jqinrtu" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_archeryrange_blue.obj" id="4_wiwuw"]
 [ext_resource type="ArrayMesh" uid="uid://b6f5gd3f2f0bn" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
 [ext_resource type="Script" uid="uid://ddppj02hs73e2" path="res://project/scenes/main/playercamera.gd" id="6_1hgs3"]
+[ext_resource type="PackedScene" uid="uid://wu7ope3qv0c7" path="res://Draw_Cards/Scenes/draw_card.tscn" id="7_mddyi"]
 
 [sub_resource type="Environment" id="Environment_sunny"]
 background_mode = 1
@@ -96,37 +97,17 @@ directional_shadow_max_distance = 80.0
 
 [node name="card system" type="CanvasLayer" parent="." unique_id=1641955506]
 
+[node name="Draw Card" parent="card system" instance=ExtResource("7_mddyi")]
+
 [node name="Control" type="Control" parent="card system" unique_id=336220348]
 layout_mode = 3
-anchors_preset = 0
-offset_right = 40.0
-offset_bottom = 40.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("2_x0vdw")
-
-[node name="building" type="Button" parent="card system/Control" unique_id=1452639354]
-layout_direction = 2
-layout_mode = 0
-offset_left = 19.0
-offset_top = 48.0
-offset_right = 98.0
-offset_bottom = 79.0
-text = "buildings"
-
-[node name="river" type="Button" parent="card system/Control" unique_id=885593417]
-layout_mode = 0
-offset_left = 14.0
-offset_top = 10.0
-offset_right = 59.0
-offset_bottom = 41.0
-text = "river"
-
-[node name="grass" type="Button" parent="card system/Control" unique_id=218864050]
-layout_mode = 0
-offset_left = 68.0
-offset_top = 8.0
-offset_right = 117.0
-offset_bottom = 39.0
-text = "grass"
 
 [node name="BuildPreview" type="Node3D" parent="." unique_id=2081239512]
 
@@ -148,7 +129,3 @@ script = ExtResource("6_1hgs3")
 [node name="Camera3D" type="Camera3D" parent="player camera" unique_id=616740063]
 transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 12, 12)
 current = true
-
-[connection signal="pressed" from="card system/Control/building" to="card system/Control" method="_on_building_pressed"]
-[connection signal="pressed" from="card system/Control/river" to="card system/Control" method="_on_river_pressed"]
-[connection signal="pressed" from="card system/Control/grass" to="card system/Control" method="_on_grass_pressed"]

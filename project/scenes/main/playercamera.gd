@@ -66,7 +66,7 @@ func _process(delta):
 		target_tilt += angle_speed * delta
 	
 
-	target_tilt = clamp(target_tilt, deg_to_rad(-80), deg_to_rad(0))
+	target_tilt = clamp(target_tilt, deg_to_rad(-85), deg_to_rad(35))
 
 	global_position.x = lerp(global_position.x, target_pos.x, smooth_weight)
 	global_position.z = lerp(global_position.z, target_pos.z, smooth_weight)

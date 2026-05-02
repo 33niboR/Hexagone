@@ -56,7 +56,7 @@ size = Vector2(238, 339)
 [node name="CardManager" type="Node2D" parent="." unique_id=1492850914 groups=["card_manager"]]
 script = ExtResource("1_wt8xf")
 
-[node name="PlayerHand" type="Node2D" parent="." unique_id=367718973]
+[node name="PlayerHand" type="Node2D" parent="." unique_id=367718973 groups=["player_hand"]]
 visible = false
 position = Vector2(1007, 1076)
 script = ExtResource("2_wt8xf")
@@ -64,7 +64,7 @@ script = ExtResource("2_wt8xf")
 [node name="deck" type="Node2D" parent="." unique_id=802948502 groups=["deck"]]
 position = Vector2(1790, 960)
 script = ExtResource("3_y4w3l")
-deck_data = Array[ExtResource("4_pg52k")]([ExtResource("5_c4ffq"), ExtResource("6_doola"), ExtResource("7_mo12f"), ExtResource("8_3xe2o"), ExtResource("8_vokvu"), ExtResource("9_1a1fi"), ExtResource("10_v05hy"), ExtResource("11_wcid7"), ExtResource("12_dbx4x"), ExtResource("13_uu4kl"), ExtResource("14_35gdf"), ExtResource("15_k8bge"), ExtResource("16_1suxb"), ExtResource("17_8lnqm"), ExtResource("18_xfpsm"), ExtResource("19_k11f2"), null, null, null, null, ExtResource("20_qkwqn"), ExtResource("21_foyip"), ExtResource("22_kqgms"), ExtResource("23_xm1wb"), ExtResource("24_3cet0"), ExtResource("25_a35nl"), ExtResource("26_g48sy"), ExtResource("27_4us1r"), ExtResource("28_hr7pb"), ExtResource("29_0ijps"), ExtResource("30_rlob0"), ExtResource("31_bq2ul"), ExtResource("32_yspy3"), ExtResource("33_7v5ed"), ExtResource("34_0yuwc"), ExtResource("35_p6kqm"), ExtResource("36_xocbr"), ExtResource("37_8hhnw"), ExtResource("38_nhsdy"), ExtResource("39_608uc"), ExtResource("40_hmcuo"), ExtResource("41_7eaf6"), ExtResource("42_e6vpv"), ExtResource("43_oq6ty"), ExtResource("44_3ij68"), ExtResource("45_q8mx3"), null])
+deck_data = Array[ExtResource("4_pg52k")]([ExtResource("5_c4ffq"), ExtResource("6_doola"), ExtResource("7_mo12f"), ExtResource("8_3xe2o"), ExtResource("8_vokvu"), ExtResource("9_1a1fi"), ExtResource("10_v05hy"), ExtResource("11_wcid7"), ExtResource("12_dbx4x"), ExtResource("13_uu4kl"), ExtResource("14_35gdf"), ExtResource("15_k8bge"), ExtResource("16_1suxb"), ExtResource("17_8lnqm"), ExtResource("18_xfpsm"), ExtResource("19_k11f2"), ExtResource("20_qkwqn"), ExtResource("21_foyip"), ExtResource("22_kqgms"), ExtResource("23_xm1wb"), ExtResource("24_3cet0"), ExtResource("25_a35nl"), ExtResource("26_g48sy"), ExtResource("27_4us1r"), ExtResource("28_hr7pb"), ExtResource("29_0ijps"), ExtResource("30_rlob0"), ExtResource("31_bq2ul"), ExtResource("32_yspy3"), ExtResource("33_7v5ed"), ExtResource("34_0yuwc"), ExtResource("35_p6kqm"), ExtResource("36_xocbr"), ExtResource("37_8hhnw"), ExtResource("38_nhsdy"), ExtResource("39_608uc"), ExtResource("40_hmcuo"), ExtResource("41_7eaf6"), ExtResource("42_e6vpv"), ExtResource("43_oq6ty"), ExtResource("44_3ij68"), ExtResource("45_q8mx3")])
 
 [node name="cardbottom" type="Sprite2D" parent="deck" unique_id=451632125]
 position = Vector2(4.196167e-05, 1.9999924)
