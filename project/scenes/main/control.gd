@@ -89,6 +89,7 @@ const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 @onready var world_node: Node3D = get_node("/root/Main/World")
 @onready var hex_grid: HexGrid = HexGrid.new()
 
+
 var is_placing: bool = false
 var current_active_model: Node3D = null 
 var current_source_card: Node2D = null
@@ -103,6 +104,9 @@ var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
 var resolution_option: OptionButton = null
+var selected_object: Node3D = null
+var selected_object_cell: Vector2i
+var selected_hint_label: Label = null
 
 func _ready():
 	add_to_group("placement_controller")
@@ -122,6 +126,7 @@ func _ready():
 	_create_additional_placeables()
 	_hide_all_previews()
 	_create_ingame_menu()
+	_create_selected_hint_label()
 
 
 func _on_building_pressed():
@@ -170,35 +175,56 @@ func _process(_delta):
 		var target_pos: Vector3 = _get_snapped_mouse_position()
 		current_active_model.global_position = target_pos
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
-		_toggle_fullscreen()
-		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		_toggle_ingame_menu()
-		get_viewport().set_input_as_handled()
-		return
-
 func _unhandled_input(event):
 	if menu_panel != null and menu_panel.visible:
 		return
 
-	if not is_placing or not current_active_model:
-		return
+	if is_placing and current_active_model:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
+			_rotate_current_placement()
+			get_viewport().set_input_as_handled()
+			return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
-		_rotate_current_placement()
-		get_viewport().set_input_as_handled()
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				_place_item(current_active_model.global_position)
+				get_viewport().set_input_as_handled()
+				return
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				_cancel_placement()
+				get_viewport().set_input_as_handled()
+				return
+
 		return
 
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			_place_item(current_active_model.global_position)
+			if get_viewport().get_mouse_position().y > get_viewport_rect().size.y - 260:
+				return
+
+		var selected := _select_object_under_mouse()
+		if selected:
 			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			_cancel_placement()
+			return
+
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			print("delete pressed")
+			_delete_selected_object()
 			get_viewport().set_input_as_handled()
+			return
+
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			var selected := _select_object_under_mouse()
+			if selected:
+				get_viewport().set_input_as_handled()
+				return
+
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_DELETE:
+		_delete_selected_object()
+		get_viewport().set_input_as_handled()
+		return
 
 func _place_item(pos: Vector3):
 	if not current_active_model: return
@@ -212,6 +238,10 @@ func _place_item(pos: Vector3):
 	world_node.add_child(new_item)
 	new_item.global_position = pos
 	new_item.show()
+
+	if new_item is MeshInstance3D:
+		new_item.create_trimesh_collision()
+
 	new_item.set_meta("placement_layer", placement_layer)
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
@@ -553,6 +583,10 @@ func _create_ingame_menu() -> void:
 	var controls_button := _create_menu_button("Controls")
 	controls_button.pressed.connect(_show_menu_section.bind("controls"))
 	menu_buttons_panel.add_child(controls_button)
+	
+	var restart_button := _create_menu_button("Restart")
+	restart_button.pressed.connect(_restart_game)
+	menu_buttons_panel.add_child(restart_button)
 
 	var exit_button := _create_menu_button("Exit Game")
 	exit_button.pressed.connect(_exit_game)
@@ -590,6 +624,8 @@ func _create_settings_panel() -> VBoxContainer:
 	resolution_option.item_selected.connect(_on_resolution_selected)
 	panel.add_child(resolution_option)
 	_sync_resolution_option()
+	
+	
 
 	var music_label := Label.new()
 	music_label.text = "Music:"
@@ -719,6 +755,11 @@ func _set_bus_volume(value: float, bus_name: String) -> void:
 func _exit_game() -> void:
 	get_tree().quit()
 
+func _restart_game() -> void:
+	_hide_ingame_menu()
+	get_tree().reload_current_scene()
+	
+
 func _play_place_sfx() -> void:
 	var music_manager: Node = get_node_or_null("/root/MusicManager")
 	if music_manager:
@@ -818,3 +859,90 @@ func get_mouse_3d_position() -> Vector3:
 
 func _get_snapped_mouse_position() -> Vector3:
 	return hex_grid.snap_world_to_hex(get_mouse_3d_position())
+
+func _select_object_under_mouse() -> bool:
+	var clicked_object := _get_clicked_object()
+
+	if clicked_object == null:
+		selected_object = null
+		_hide_selected_hint()
+		return false
+
+	var cell: Vector2i = hex_grid.world_to_axial(clicked_object.global_position)
+
+	if object_cells.has(cell):
+		selected_object = object_cells[cell]
+		selected_object_cell = cell
+
+		print("object selected: ", selected_object.name)
+		_show_selected_hint(selected_object.name)
+
+		return true
+
+	selected_object = null
+	_hide_selected_hint()
+
+	return false
+func _delete_selected_object() -> void:
+	if selected_object == null or not is_instance_valid(selected_object):
+		print("no selected object to delete")
+		return
+
+	var cell: Vector2i = hex_grid.world_to_axial(selected_object.global_position)
+
+	if object_cells.has(cell):
+		object_cells.erase(cell)
+
+	print("deleting: ", selected_object.name)
+	selected_object.queue_free()
+	selected_object = null
+	print("selected object deleted")
+	_hide_selected_hint()
+
+func _get_clicked_object() -> Node3D:
+	var viewport := get_viewport()
+	var camera := viewport.get_camera_3d()
+
+	if not camera:
+		print("no camera")
+		return null
+
+	var mouse_pos := viewport.get_mouse_position()
+	var ray_origin := camera.project_ray_origin(mouse_pos)
+	var ray_end := ray_origin + camera.project_ray_normal(mouse_pos) * 1000.0
+
+	var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	var result := camera.get_world_3d().direct_space_state.intersect_ray(query)
+
+	print(result)
+
+	if result.is_empty():
+		print("ray hit nothing")
+		return null
+
+	var collider = result["collider"]
+	print("hit: ", collider)
+
+	if collider is Node3D:
+		var node := collider as Node3D
+		if node.get_parent() is Node3D:
+			return node.get_parent()
+		return node
+
+	return null
+func _create_selected_hint_label() -> void:
+	selected_hint_label = Label.new()
+	selected_hint_label.text = ""
+	selected_hint_label.visible = false
+	selected_hint_label.position = Vector2(20, 80)
+	selected_hint_label.add_theme_font_size_override("font_size", 24)
+	add_child(selected_hint_label)
+func _show_selected_hint(object_name: String) -> void:
+	if selected_hint_label == null:
+		return
+
+	selected_hint_label.text = "Selected: " + object_name + "\nPress Delete to remove"
+	selected_hint_label.visible = true
+func _hide_selected_hint() -> void:
+	if selected_hint_label != null:
+		selected_hint_label.visible = false

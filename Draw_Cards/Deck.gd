@@ -18,11 +18,14 @@ func initialize_deck() -> void:
 
 func draw_card() -> CardData:
 	if draw_pile.is_empty():
-		push_warning("Deck is empty")
+		initialize_deck()
+
+	if draw_pile.is_empty():
+		push_warning("Deck data is empty")
 		return null
 
 	var card_index := _pick_weighted_card_index()
-	return draw_pile.pop_at(card_index)
+	return draw_pile[card_index]
 
 func _pick_weighted_card_index() -> int:
 	var total_weight := 0
