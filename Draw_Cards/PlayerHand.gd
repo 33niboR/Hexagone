@@ -67,15 +67,25 @@ func remove_card(card: Node2D) -> void:
 func update_hand_positions() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	
-	var spacing: float = 150.0
+	var spacing: float = 120.0
 	var total_width: float = (hand.size() - 1) * spacing
 	var center_screen_x: float = viewport_size.x / 2.0
-	var y: float = viewport_size.y * 0.85   # 85% down screen
+	var y: float = viewport_size.y * 0.85 + _get_hand_card_height() * 0.04   # 85% down screen, then a small card-relative nudge
 	
 	for i in range(hand.size()):
 		var x: float = center_screen_x + i * spacing - total_width / 2.0
 		hand[i].global_position = Vector2(x, y)
-		
+
+func _get_hand_card_height() -> float:
+	for card: Node2D in hand:
+		if card == null or not is_instance_valid(card):
+			continue
+		var card_image := card.get_node_or_null("CardImage") as Sprite2D
+		if card_image == null or card_image.texture == null:
+			continue
+		return card_image.texture.get_size().y * card.scale.y
+	return 0.0
+
 func _create_hand_full_label() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -85,14 +95,13 @@ func _create_hand_full_label() -> void:
 	hand_full_label.visible = false
 	hand_full_label.position = Vector2(500, 300)
 	hand_full_label.add_theme_font_size_override("font_size", 36)
-
 	canvas.add_child(hand_full_label)
+
 func _show_hand_full_message() -> void:
 	if hand_full_label == null:
 		return
 
 	hand_full_label.visible = true
-
 	await get_tree().create_timer(2.5).timeout
 
 	if hand_full_label != null:

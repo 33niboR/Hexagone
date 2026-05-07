@@ -977,9 +977,10 @@ Mouse wheel - Zoom
 Q/E - Rotate
 R/F - Tilt
 X - Reset camera
-Left click - Place selected card
+Left click - Place selected card or select object
 Space - Rotate selected card
 Right click - Cancel placement
+Delete - Remove selected object
 F11 - Toggle fullscreen
 Esc - Toggle menu"
 

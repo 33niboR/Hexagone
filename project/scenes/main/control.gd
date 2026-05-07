@@ -104,8 +104,9 @@ var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
 var resolution_option: OptionButton = null
+var default_land_tile_material: Material = null
 var selected_object: Node3D = null
-var selected_object_cell: Vector2i
+var selected_object_cell: Vector2i = Vector2i.ZERO
 var selected_hint_label: Label = null
 
 func _ready():
@@ -119,6 +120,7 @@ func _ready():
 		grass_button.hide()
 
 	_seed_existing_terrain_cells()
+	default_land_tile_material = _find_default_land_tile_material()
 	placeable_previews.clear()
 	_register_placeable_preview(preview_building, PLACEMENT_OBJECT)
 	_register_placeable_preview(preview_river, PLACEMENT_TERRAIN, TERRAIN_WATER)
@@ -190,41 +192,25 @@ func _unhandled_input(event):
 				_place_item(current_active_model.global_position)
 				get_viewport().set_input_as_handled()
 				return
-			elif event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.button_index == MOUSE_BUTTON_RIGHT:
 				_cancel_placement()
 				get_viewport().set_input_as_handled()
 				return
 
 		return
 
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if get_viewport().get_mouse_position().y > get_viewport_rect().size.y - 260:
-				return
-
-		var selected := _select_object_under_mouse()
-		if selected:
-			get_viewport().set_input_as_handled()
-			return
-
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
-			print("delete pressed")
 			_delete_selected_object()
 			get_viewport().set_input_as_handled()
 			return
 
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			var selected := _select_object_under_mouse()
-			if selected:
-				get_viewport().set_input_as_handled()
-				return
-
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_DELETE:
-		_delete_selected_object()
-		get_viewport().set_input_as_handled()
-		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if get_viewport().get_mouse_position().y > get_viewport_rect().size.y - 260.0:
+			return
+		if _select_object_under_mouse():
+			get_viewport().set_input_as_handled()
+			return
 
 func _place_item(pos: Vector3):
 	if not current_active_model: return
@@ -238,10 +224,9 @@ func _place_item(pos: Vector3):
 	world_node.add_child(new_item)
 	new_item.global_position = pos
 	new_item.show()
-
-	if new_item is MeshInstance3D:
-		new_item.create_trimesh_collision()
-
+	var new_mesh := new_item as MeshInstance3D
+	if new_mesh != null:
+		new_mesh.create_trimesh_collision()
 	new_item.set_meta("placement_layer", placement_layer)
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
@@ -369,6 +354,17 @@ func get_available_build_tile_count() -> int:
 		available_count += 1
 	return available_count
 
+func get_available_water_prop_tile_count() -> int:
+	var available_count := 0
+	for cell_key in terrain_cells.keys():
+		var cell: Vector2i = cell_key
+		if object_cells.has(cell):
+			continue
+		if str(terrain_types.get(cell, TERRAIN_LAND)) != TERRAIN_WATER:
+			continue
+		available_count += 1
+	return available_count
+
 func _get_placement_layer(placeable: Node3D) -> String:
 	if placeable.has_meta("placement_layer"):
 		return str(placeable.get_meta("placement_layer"))
@@ -416,6 +412,8 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	preview.mesh = mesh_resource as Mesh
 	var preview_scale := float(definition.get("scale", 2.0))
 	preview.scale = Vector3(preview_scale, preview_scale, preview_scale)
+	if str(definition["placement_layer"]) == PLACEMENT_TERRAIN and str(definition.get("terrain_type", TERRAIN_LAND)) == TERRAIN_LAND:
+		_apply_default_land_tile_material(preview)
 	build_preview_node.add_child(preview)
 	_register_placeable_preview(preview, str(definition["placement_layer"]), str(definition.get("terrain_type", TERRAIN_LAND)))
 	if definition.has("terrain_requirement"):
@@ -435,11 +433,11 @@ func _get_card_placeable_definition(card_data: CardData) -> Dictionary:
 	if key.contains("mountain"):
 		return _object_definition(_nature_mesh_path(key, "mountain", "mountain_A_grass_trees"), TERRAIN_LAND)
 	if key.contains("waterlily"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/waterlily_A.obj", TERRAIN_WATER)
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterlily_A.obj", TERRAIN_WATER, 4.5)
 	if key.contains("waterplant"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/waterplant_C.obj", TERRAIN_WATER)
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterplant_C.obj", TERRAIN_WATER, 4.5)
 	if key.contains("grass bottom"):
-		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_bottom.obj", TERRAIN_LAND)
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND)
 	if key.contains("grass sloped high"):
 		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_sloped_high.obj", TERRAIN_LAND)
 	if key.contains("grass"):
@@ -461,7 +459,7 @@ func _get_card_placeable_definition(card_data: CardData) -> Dictionary:
 	if key.contains("tree"):
 		return _object_definition(_nature_mesh_path(key, "tree", "trees_A_large"), TERRAIN_LAND)
 	if key.contains("rock"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND)
+		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND, 4.0)
 	if key.contains("barrel"):
 		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND, 4.5)
 	if key.contains("bucket"):
@@ -479,6 +477,34 @@ func _terrain_definition(mesh_path: String, terrain_type: String) -> Dictionary:
 		"placement_layer": PLACEMENT_TERRAIN,
 		"terrain_type": terrain_type
 	}
+
+func _find_default_land_tile_material() -> Material:
+	for child: Node in world_node.get_children():
+		var node_3d := child as Node3D
+		if node_3d == null or not node_3d.name.begins_with("HexTile"):
+			continue
+		var mesh_instance := _find_first_mesh_instance(node_3d)
+		if mesh_instance == null:
+			continue
+		var material := mesh_instance.get_active_material(0)
+		if material != null:
+			return material
+	return null
+
+func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
+	var mesh_instance := node as MeshInstance3D
+	if mesh_instance != null:
+		return mesh_instance
+	for child: Node in node.get_children():
+		var child_mesh := _find_first_mesh_instance(child)
+		if child_mesh != null:
+			return child_mesh
+	return null
+
+func _apply_default_land_tile_material(mesh_instance: MeshInstance3D) -> void:
+	if default_land_tile_material == null:
+		return
+	mesh_instance.material_override = default_land_tile_material
 
 func _object_definition(mesh_path: String, terrain_requirement: String, scale: float = 2.0) -> Dictionary:
 	return {
@@ -650,7 +676,7 @@ func _create_controls_panel() -> VBoxContainer:
 	panel.add_theme_constant_override("separation", 4)
 
 	var controls_text := Label.new()
-	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card\nSpace - Rotate selected card\nRight click - Cancel placement\nF11 - Toggle fullscreen\nEsc - Toggle menu"
+	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card or select object\nSpace - Rotate selected card\nRight click - Cancel placement\nDelete - Remove selected object\nF11 - Toggle fullscreen\nEsc - Toggle menu"
 	controls_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_apply_menu_label_style(controls_text)
 	panel.add_child(controls_text)
@@ -758,7 +784,6 @@ func _exit_game() -> void:
 func _restart_game() -> void:
 	_hide_ingame_menu()
 	get_tree().reload_current_scene()
-	
 
 func _play_place_sfx() -> void:
 	var music_manager: Node = get_node_or_null("/root/MusicManager")
@@ -862,34 +887,29 @@ func _get_snapped_mouse_position() -> Vector3:
 
 func _select_object_under_mouse() -> bool:
 	var clicked_object := _get_clicked_object()
-
 	if clicked_object == null:
 		selected_object = null
 		_hide_selected_hint()
 		return false
 
 	var cell: Vector2i = hex_grid.world_to_axial(clicked_object.global_position)
-
 	if object_cells.has(cell):
 		selected_object = object_cells[cell]
 		selected_object_cell = cell
-
-		print("object selected: ", selected_object.name)
 		_show_selected_hint(selected_object.name)
-
+		print("object selected: ", selected_object.name)
 		return true
 
 	selected_object = null
 	_hide_selected_hint()
-
 	return false
+
 func _delete_selected_object() -> void:
 	if selected_object == null or not is_instance_valid(selected_object):
 		print("no selected object to delete")
 		return
 
 	var cell: Vector2i = hex_grid.world_to_axial(selected_object.global_position)
-
 	if object_cells.has(cell):
 		object_cells.erase(cell)
 
@@ -902,34 +922,28 @@ func _delete_selected_object() -> void:
 func _get_clicked_object() -> Node3D:
 	var viewport := get_viewport()
 	var camera := viewport.get_camera_3d()
-
-	if not camera:
-		print("no camera")
+	if camera == null:
 		return null
 
 	var mouse_pos := viewport.get_mouse_position()
 	var ray_origin := camera.project_ray_origin(mouse_pos)
 	var ray_end := ray_origin + camera.project_ray_normal(mouse_pos) * 1000.0
-
 	var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
 	var result := camera.get_world_3d().direct_space_state.intersect_ray(query)
-
-	print(result)
-
 	if result.is_empty():
-		print("ray hit nothing")
 		return null
 
-	var collider = result["collider"]
-	print("hit: ", collider)
+	var collider := result["collider"] as Node
+	if collider == null:
+		return null
+	return _get_world_child_from_node(collider)
 
-	if collider is Node3D:
-		var node := collider as Node3D
-		if node.get_parent() is Node3D:
-			return node.get_parent()
-		return node
+func _get_world_child_from_node(node: Node) -> Node3D:
+	var current := node
+	while current != null and current.get_parent() != world_node:
+		current = current.get_parent()
+	return current as Node3D
 
-	return null
 func _create_selected_hint_label() -> void:
 	selected_hint_label = Label.new()
 	selected_hint_label.text = ""
@@ -937,12 +951,14 @@ func _create_selected_hint_label() -> void:
 	selected_hint_label.position = Vector2(20, 80)
 	selected_hint_label.add_theme_font_size_override("font_size", 24)
 	add_child(selected_hint_label)
+
 func _show_selected_hint(object_name: String) -> void:
 	if selected_hint_label == null:
 		return
 
 	selected_hint_label.text = "Selected: " + object_name + "\nPress Delete to remove"
 	selected_hint_label.visible = true
+
 func _hide_selected_hint() -> void:
 	if selected_hint_label != null:
 		selected_hint_label.visible = false

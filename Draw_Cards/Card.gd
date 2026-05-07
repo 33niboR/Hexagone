@@ -4,7 +4,7 @@ signal hovered(card)
 signal hovered_off(card)
 signal card_selected(card)
 
-@export var target_width: float = 1000.0 #This is where you can adjust the card size by increasing or decreasing the number
+@export var target_width: float = 800.0 #This is where you can adjust the card size by increasing or decreasing the number
 @onready var card_image: Sprite2D = $CardImage
 
 var data: CardData
