@@ -23,6 +23,29 @@ const MENU_BUTTON_NORMAL := Color(0.27058825, 0.3529412, 0.39215687, 1.0)
 const MENU_BUTTON_PRESSED := Color(0.14901961, 0.19607843, 0.21960784, 1.0)
 const MENU_BUTTON_HOVER := Color(0.47058824, 0.5647059, 0.6117647, 1.0)
 const MENU_FONT_COLOR := Color(0.9254902, 0.9372549, 0.94509804, 1.0)
+const XP_PER_PLACEMENT: int = 1
+const BASE_XP_TO_LEVEL: int = 4
+const XP_GROWTH_PER_LEVEL: int = 2
+const POWERUP_REWARD_MIN: int = 2
+const POWERUP_REWARD_MAX: int = 3
+const MAX_BIGGER_HAND_USES: int = 3
+const POWERUP_POOL: Array[Dictionary] = [
+	{
+		"id": "redraw_hand",
+		"label": "Redraw Hand",
+		"description": "Discard your hand and draw replacements."
+	},
+	{
+		"id": "search_deck",
+		"label": "Search Deck",
+		"description": "Pick a specific card from the deck."
+	},
+	{
+		"id": "expand_hand",
+		"label": "Bigger Hand",
+		"description": "Permanently increase your hand limit by one."
+	}
+]
 const AXIAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(1, 0),
 	Vector2i(1, -1),
@@ -108,6 +131,19 @@ var default_land_tile_material: Material = null
 var selected_object: Node3D = null
 var selected_object_cell: Vector2i = Vector2i.ZERO
 var selected_hint_label: Label = null
+var player_level: int = 1
+var current_xp: int = 0
+var xp_to_next_level: int = BASE_XP_TO_LEVEL
+var powerup_inventory: Array[Dictionary] = []
+var progression_panel: PanelContainer = null
+var level_label: Label = null
+var xp_label: Label = null
+var xp_bar: ProgressBar = null
+var powerup_list: VBoxContainer = null
+var search_panel: PanelContainer = null
+var search_list: VBoxContainer = null
+var pending_search_powerup_index: int = -1
+var bigger_hand_uses: int = 0
 
 func _ready():
 	add_to_group("placement_controller")
@@ -128,7 +164,9 @@ func _ready():
 	_create_additional_placeables()
 	_hide_all_previews()
 	_create_ingame_menu()
+	_create_progression_hud()
 	_create_selected_hint_label()
+	_sync_progression_hud()
 
 
 func _on_building_pressed():
@@ -231,6 +269,7 @@ func _place_item(pos: Vector3):
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
 	_register_placed_item(cell, placement_layer, new_item)
+	_gain_progression_xp(XP_PER_PLACEMENT)
 	
 	print("placement successful: ", current_active_model.name)
 	_play_place_sfx()
@@ -676,7 +715,7 @@ func _create_controls_panel() -> VBoxContainer:
 	panel.add_theme_constant_override("separation", 4)
 
 	var controls_text := Label.new()
-	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card or select object\nSpace - Rotate selected card\nRight click - Cancel placement\nDelete - Remove selected object\nF11 - Toggle fullscreen\nEsc - Toggle menu"
+	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card or select object\nSpace - Rotate selected card\nRight click - Cancel placement\nDelete - Remove selected object\nPower-up buttons - Use level rewards\nF11 - Toggle fullscreen\nEsc - Toggle menu"
 	controls_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_apply_menu_label_style(controls_text)
 	panel.add_child(controls_text)
@@ -686,6 +725,273 @@ func _create_controls_panel() -> VBoxContainer:
 	panel.add_child(back_button)
 
 	return panel
+
+func _create_progression_hud() -> void:
+	progression_panel = PanelContainer.new()
+	progression_panel.name = "ProgressionHUD"
+	progression_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	progression_panel.offset_left = 18.0
+	progression_panel.offset_top = 18.0
+	progression_panel.offset_right = 326.0
+	progression_panel.offset_bottom = 360.0
+	progression_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	add_child(progression_panel)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 8)
+	progression_panel.add_child(layout)
+
+	level_label = Label.new()
+	level_label.text = "Level 1"
+	level_label.add_theme_font_override("font", MENU_TITLE_FONT)
+	level_label.add_theme_font_size_override("font_size", 34)
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(level_label)
+
+	xp_label = Label.new()
+	xp_label.text = "XP 0 / 4"
+	_apply_menu_label_style(xp_label, 20)
+	xp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(xp_label)
+
+	xp_bar = ProgressBar.new()
+	xp_bar.min_value = 0.0
+	xp_bar.max_value = float(xp_to_next_level)
+	xp_bar.value = 0.0
+	xp_bar.show_percentage = false
+	xp_bar.custom_minimum_size = Vector2(0.0, 20.0)
+	layout.add_child(xp_bar)
+
+	var powerup_title := Label.new()
+	powerup_title.text = "Power Ups"
+	powerup_title.add_theme_font_override("font", MENU_TITLE_FONT)
+	powerup_title.add_theme_font_size_override("font_size", 28)
+	powerup_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(powerup_title)
+
+	powerup_list = VBoxContainer.new()
+	powerup_list.add_theme_constant_override("separation", 6)
+	layout.add_child(powerup_list)
+
+	_create_search_panel()
+
+func _create_search_panel() -> void:
+	search_panel = PanelContainer.new()
+	search_panel.name = "SearchDeckPanel"
+	search_panel.visible = false
+	search_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	search_panel.anchor_left = 0.5
+	search_panel.anchor_top = 0.5
+	search_panel.anchor_right = 0.5
+	search_panel.anchor_bottom = 0.5
+	search_panel.offset_left = -230.0
+	search_panel.offset_top = -285.0
+	search_panel.offset_right = 230.0
+	search_panel.offset_bottom = 285.0
+	search_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	add_child(search_panel)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 10)
+	search_panel.add_child(layout)
+
+	var title := Label.new()
+	title.text = "Search Deck"
+	title.add_theme_font_override("font", MENU_TITLE_FONT)
+	title.add_theme_font_size_override("font_size", 44)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(title)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0.0, 390.0)
+	layout.add_child(scroll)
+
+	search_list = VBoxContainer.new()
+	search_list.add_theme_constant_override("separation", 6)
+	scroll.add_child(search_list)
+
+	var cancel_button := _create_menu_button("Cancel")
+	cancel_button.pressed.connect(_hide_search_panel)
+	layout.add_child(cancel_button)
+
+func _gain_progression_xp(amount: int) -> void:
+	current_xp += amount
+	while current_xp >= xp_to_next_level:
+		current_xp -= xp_to_next_level
+		player_level += 1
+		xp_to_next_level = BASE_XP_TO_LEVEL + (player_level - 1) * XP_GROWTH_PER_LEVEL
+		_award_random_powerups()
+		print("Level up: ", player_level)
+	_sync_progression_hud()
+
+func _award_random_powerups() -> void:
+	var reward_count := randi_range(POWERUP_REWARD_MIN, POWERUP_REWARD_MAX)
+	for i: int in range(reward_count):
+		var available_powerups := _get_available_powerups()
+		if available_powerups.is_empty():
+			return
+		var reward: Dictionary = available_powerups.pick_random().duplicate()
+		powerup_inventory.append(reward)
+
+func _get_available_powerups() -> Array[Dictionary]:
+	var available_powerups: Array[Dictionary] = []
+	for powerup: Dictionary in POWERUP_POOL:
+		var powerup_id := str(powerup.get("id", ""))
+		if powerup_id == "expand_hand" and bigger_hand_uses + _get_inventory_powerup_count("expand_hand") >= MAX_BIGGER_HAND_USES:
+			continue
+		available_powerups.append(powerup)
+	return available_powerups
+
+func _get_inventory_powerup_count(powerup_id: String) -> int:
+	var count := 0
+	for powerup: Dictionary in powerup_inventory:
+		if str(powerup.get("id", "")) == powerup_id:
+			count += 1
+	return count
+
+func _sync_progression_hud() -> void:
+	if level_label != null:
+		level_label.text = "Level " + str(player_level)
+	if xp_label != null:
+		xp_label.text = "XP " + str(current_xp) + " / " + str(xp_to_next_level)
+	if xp_bar != null:
+		xp_bar.max_value = float(xp_to_next_level)
+		xp_bar.value = float(current_xp)
+	_sync_powerup_buttons()
+
+func _sync_powerup_buttons() -> void:
+	if powerup_list == null:
+		return
+	for child: Node in powerup_list.get_children():
+		child.queue_free()
+
+	if powerup_inventory.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "Place cards to level up"
+		_apply_menu_label_style(empty_label, 18)
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		powerup_list.add_child(empty_label)
+		return
+
+	for index: int in range(powerup_inventory.size()):
+		var powerup: Dictionary = powerup_inventory[index]
+		var button := Button.new()
+		button.text = str(powerup.get("label", "Power Up"))
+		button.tooltip_text = str(powerup.get("description", ""))
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		button.custom_minimum_size = Vector2(0.0, 38.0)
+		_apply_menu_button_style(button, 20)
+		button.pressed.connect(_activate_powerup.bind(index))
+		powerup_list.add_child(button)
+
+func _activate_powerup(index: int) -> void:
+	if index < 0 or index >= powerup_inventory.size():
+		return
+	if is_placing:
+		_cancel_placement()
+
+	var powerup: Dictionary = powerup_inventory[index]
+	var powerup_id := str(powerup.get("id", ""))
+	var player_hand := _get_player_hand()
+	var deck := _get_deck()
+	var consumed := false
+
+	match powerup_id:
+		"redraw_hand":
+			if player_hand != null and player_hand.has_method("discard_hand"):
+				consumed = int(player_hand.discard_hand(true, deck)) > 0
+		"search_deck":
+			_show_search_panel(index)
+			return
+		"expand_hand":
+			if player_hand != null and player_hand.has_method("increase_hand_limit"):
+				player_hand.increase_hand_limit(1)
+				bigger_hand_uses += 1
+				consumed = true
+
+	if consumed:
+		_remove_powerup(index)
+
+func _show_search_panel(powerup_index: int) -> void:
+	var player_hand := _get_player_hand()
+	if player_hand != null and player_hand.has_method("get_available_slots") and int(player_hand.get_available_slots()) <= 0:
+		if player_hand.has_method("_show_hand_full_message"):
+			player_hand.call("_show_hand_full_message")
+		return
+
+	var deck := _get_deck()
+	if deck == null:
+		return
+
+	pending_search_powerup_index = powerup_index
+	for child: Node in search_list.get_children():
+		child.queue_free()
+
+	for card_data: CardData in _get_unique_deck_cards(deck):
+		var card_button := Button.new()
+		card_button.text = _get_card_display_name(card_data)
+		card_button.tooltip_text = "Add this card to your hand"
+		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		card_button.custom_minimum_size = Vector2(0.0, 42.0)
+		_apply_menu_button_style(card_button, 20)
+		card_button.pressed.connect(_finish_search_powerup.bind(card_data))
+		search_list.add_child(card_button)
+
+	search_panel.visible = true
+
+func _finish_search_powerup(card_data: CardData) -> void:
+	var player_hand := _get_player_hand()
+	var deck := _get_deck()
+	if player_hand == null or deck == null or not player_hand.has_method("add_card_data"):
+		return
+
+	if player_hand.add_card_data(card_data, deck.get_deck_position()):
+		var used_powerup_index := pending_search_powerup_index
+		_hide_search_panel()
+		_remove_powerup(used_powerup_index)
+
+func _hide_search_panel() -> void:
+	if search_panel != null:
+		search_panel.visible = false
+	pending_search_powerup_index = -1
+
+func _remove_powerup(index: int) -> void:
+	if index < 0 or index >= powerup_inventory.size():
+		return
+	powerup_inventory.remove_at(index)
+	_sync_progression_hud()
+
+func _get_unique_deck_cards(deck: Node) -> Array[CardData]:
+	var cards: Array[CardData] = []
+	var seen := {}
+	var raw_cards: Array = deck.get("deck_data")
+	for raw_card: Variant in raw_cards:
+		var card_data := raw_card as CardData
+		if card_data == null:
+			continue
+		var key := str(card_data.card_id)
+		if key.is_empty():
+			key = str(card_data.resource_path)
+		if seen.has(key):
+			continue
+		seen[key] = true
+		cards.append(card_data)
+	return cards
+
+func _get_card_display_name(card_data: CardData) -> String:
+	if card_data == null:
+		return "Unknown Card"
+	if not card_data.display_name.is_empty():
+		return card_data.display_name
+	if not card_data.card_id.is_empty():
+		return card_data.card_id.capitalize()
+	return "Card"
+
+func _get_player_hand() -> Node:
+	return get_tree().get_first_node_in_group("player_hand")
+
+func _get_deck() -> Node:
+	return get_tree().get_first_node_in_group("deck")
 
 func _create_volume_slider(bus_name: String) -> HSlider:
 	var slider := HSlider.new()
@@ -948,7 +1254,7 @@ func _create_selected_hint_label() -> void:
 	selected_hint_label = Label.new()
 	selected_hint_label.text = ""
 	selected_hint_label.visible = false
-	selected_hint_label.position = Vector2(20, 80)
+	selected_hint_label.position = Vector2(20, 390)
 	selected_hint_label.add_theme_font_size_override("font_size", 24)
 	add_child(selected_hint_label)
 

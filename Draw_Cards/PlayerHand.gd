@@ -4,6 +4,7 @@ const CARD_SCENE_PATH := "res://Draw_Cards/Scenes/card.tscn"
 const HAND_COUNT := 6
 
 var hand: Array[Node2D] = []
+var hand_limit: int = HAND_COUNT
 var center_screen_x: float
 var hand_full_label: Label = null
 
@@ -29,32 +30,80 @@ func _on_deck_clicked() -> void:
 
 
 func request_draw_from_deck(deck: Node) -> void:
-	if hand.size() >= HAND_COUNT:
+	if hand.size() >= hand_limit:
 		print("Hand full")
 		_show_hand_full_message()
 		return
 
 	var data: CardData = deck.draw_card()
 	print("Draw result:", data)
-	print("Instantiating card...")
 	if data == null:
 		return
+	add_card_data(data, deck.get_deck_position())
+
+func add_card_data(data: CardData, start_position: Vector2 = Vector2.ZERO) -> bool:
+	if data == null:
+		return false
+	if hand.size() >= hand_limit:
+		print("Hand full")
+		_show_hand_full_message()
+		return false
+
+	print("Instantiating card...")
 	var card_scene: PackedScene = preload(CARD_SCENE_PATH)
 	var new_card: Node2D = card_scene.instantiate()
 	
 	var card_manager := get_tree().get_first_node_in_group("card_manager")
 	if card_manager == null:
 		push_error("CardManager not found")
-		return
+		return false
 	print("CardManager found:", card_manager)
 	
 	card_manager.add_child(new_card)
 
-	new_card.global_position = deck.get_deck_position()
+	new_card.global_position = start_position
 	
 	new_card.setup(data)
 	
 	add_card_to_hand(new_card)
+	return true
+
+func draw_cards_from_deck(deck: Node, count: int) -> int:
+	if deck == null:
+		return 0
+	var drawn := 0
+	for i: int in range(count):
+		if hand.size() >= hand_limit:
+			break
+		var data: CardData = deck.draw_card()
+		if data == null:
+			break
+		if add_card_data(data, deck.get_deck_position()):
+			drawn += 1
+	return drawn
+
+func discard_hand(redraw: bool = false, deck: Node = null) -> int:
+	var discarded_count := hand.size()
+	for card: Node2D in hand:
+		if card != null and is_instance_valid(card):
+			card.queue_free()
+	hand.clear()
+	update_hand_positions()
+
+	if redraw and deck != null:
+		draw_cards_from_deck(deck, min(discarded_count, hand_limit))
+
+	return discarded_count
+
+func increase_hand_limit(amount: int = 1) -> void:
+	hand_limit = max(hand_limit + amount, HAND_COUNT)
+	update_hand_positions()
+
+func get_hand_limit() -> int:
+	return hand_limit
+
+func get_available_slots() -> int:
+	return max(hand_limit - hand.size(), 0)
 
 func add_card_to_hand(card: Node2D) -> void:
 	hand.append(card)
