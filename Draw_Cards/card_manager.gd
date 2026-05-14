@@ -7,6 +7,7 @@ func connect_card_signals(card):
 	card.hovered.connect(on_card_hovered)
 	card.hovered_off.connect(on_card_unhovered)
 	card.card_selected.connect(on_card_selected)
+	card.card_drag_released.connect(on_card_drag_released)
 
 func on_card_hovered(card: Node2D) -> void:
 	# Unhover previous card
@@ -35,6 +36,11 @@ func on_card_selected(card):
 	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
 	if placement_controller != null and placement_controller.has_method("start_card_placement"):
 		placement_controller.start_card_placement(card)
+
+func on_card_drag_released(card: Node2D) -> void:
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("finish_drag_placement"):
+		placement_controller.finish_drag_placement(card)
 
 func clear_selected_card(card: Node2D = null) -> void:
 	if card == null or card_being_dragged == card:

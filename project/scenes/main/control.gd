@@ -18,7 +18,7 @@ const TERRAIN_LAND: String = "land"
 const TERRAIN_WATER: String = "water"
 const TERRAIN_ANY: String = "any"
 const ASSET_ROOT: String = "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/"
-const MENU_WIDTH: float = 360.0
+const MENU_WIDTH: float = 633.0
 const MENU_BUTTON_NORMAL := Color(0.27058825, 0.3529412, 0.39215687, 1.0)
 const MENU_BUTTON_PRESSED := Color(0.14901961, 0.19607843, 0.21960784, 1.0)
 const MENU_BUTTON_HOVER := Color(0.47058824, 0.5647059, 0.6117647, 1.0)
@@ -210,6 +210,24 @@ func start_card_placement(card: Node2D) -> void:
 	current_source_card.hide()
 	_start_placement(preview)
 
+func finish_drag_placement(card: Node2D) -> void:
+	# Called when the player releases the mouse button after dragging a card.
+	# If a placement is active and the hovered cell is valid, commit it;
+	# otherwise cancel so the card returns to the hand.
+	if not is_placing or current_active_model == null:
+		return
+	# Only act if this drag matches the card currently being placed.
+	if card != null and current_source_card != card:
+		return
+	var pos: Vector3 = _get_snapped_mouse_position()
+	var cell: Vector2i = hex_grid.world_to_axial(pos)
+	var placement_layer: String = _get_placement_layer(current_active_model)
+	if _can_place_at(cell, placement_layer):
+		_place_item(pos)
+	else:
+		print("drag placement invalid at ", cell, " — cancelling")
+		_cancel_placement()
+
 func _process(_delta):
 	if is_placing and current_active_model:
 		var target_pos: Vector3 = _get_snapped_mouse_position()
@@ -282,14 +300,24 @@ func _rotate_current_placement() -> void:
 
 func _cancel_placement():
 	is_placing = false
-	_hide_all_previews() 
+	_hide_all_previews()
 	current_active_model = null
 	current_rotation_steps = 0
+
 	if current_source_card != null and is_instance_valid(current_source_card):
+		# Stop any active drag so the card no longer follows the mouse
+		if "is_dragging" in current_source_card:
+			current_source_card.set("is_dragging", false)
 		_clear_card_manager_selection(current_source_card)
 		current_source_card.show()
+
+		# Reposition the card back into the hand layout
+		var player_hand := get_tree().get_first_node_in_group("player_hand")
+		if player_hand != null and player_hand.has_method("update_hand_positions"):
+			player_hand.update_hand_positions()
 	current_source_card = null
 	print("closed")
+
 
 func _hide_all_previews():
 	for preview: Node3D in placeable_previews:
@@ -616,14 +644,14 @@ func _create_ingame_menu() -> void:
 	menu_panel.anchor_right = 0.5
 	menu_panel.anchor_bottom = 0.5
 	menu_panel.offset_left = -MENU_WIDTH / 2.0
-	menu_panel.offset_top = -250.0
+	menu_panel.offset_top = -201.5
 	menu_panel.offset_right = MENU_WIDTH / 2.0
-	menu_panel.offset_bottom = 250.0
+	menu_panel.offset_bottom = 201.5
 	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(menu_panel)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 14)
+	layout.add_theme_constant_override("separation", 20)
 	menu_panel.add_child(layout)
 
 	var title := Label.new()
@@ -634,7 +662,7 @@ func _create_ingame_menu() -> void:
 	layout.add_child(title)
 
 	menu_buttons_panel = VBoxContainer.new()
-	menu_buttons_panel.add_theme_constant_override("separation", 14)
+	menu_buttons_panel.add_theme_constant_override("separation", 20)
 	layout.add_child(menu_buttons_panel)
 
 	var resume_button := _create_menu_button("Resume")
@@ -670,22 +698,23 @@ func _create_menu_button(label: String) -> Button:
 	button.text = label
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.custom_minimum_size = Vector2(0.0, 52.0)
-	_apply_menu_button_style(button, 30)
+	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_apply_menu_button_style(button, 35)
 	return button
 
 func _create_settings_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
-	panel.add_theme_constant_override("separation", 8)
+	panel.add_theme_constant_override("separation", 20)
 
 	var screen_label := Label.new()
 	screen_label.text = "Screen:"
-	_apply_menu_label_style(screen_label)
+	_apply_menu_label_style(screen_label, 50)
 	panel.add_child(screen_label)
 
 	resolution_option = OptionButton.new()
 	resolution_option.add_item("Windowed", 0)
 	resolution_option.add_item("Fullscreen", 1)
-	_apply_menu_button_style(resolution_option, 24)
+	_apply_menu_button_style(resolution_option, 30)
 	resolution_option.item_selected.connect(_on_resolution_selected)
 	panel.add_child(resolution_option)
 	_sync_resolution_option()
@@ -694,13 +723,13 @@ func _create_settings_panel() -> VBoxContainer:
 
 	var music_label := Label.new()
 	music_label.text = "Music:"
-	_apply_menu_label_style(music_label)
+	_apply_menu_label_style(music_label, 50)
 	panel.add_child(music_label)
 	panel.add_child(_create_volume_slider("Music"))
 
 	var sfx_label := Label.new()
 	sfx_label.text = "SFX:"
-	_apply_menu_label_style(sfx_label)
+	_apply_menu_label_style(sfx_label, 50)
 	panel.add_child(sfx_label)
 	panel.add_child(_create_volume_slider("SFX"))
 
@@ -712,12 +741,12 @@ func _create_settings_panel() -> VBoxContainer:
 
 func _create_controls_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
-	panel.add_theme_constant_override("separation", 4)
+	panel.add_theme_constant_override("separation", 0)
 
 	var controls_text := Label.new()
 	controls_text.text = "WASD - Move camera\nMouse wheel - Zoom\nQ/E - Rotate\nR/F - Tilt\nX - Reset camera\nLeft click - Place selected card or select object\nSpace - Rotate selected card\nRight click - Cancel placement\nDelete - Remove selected object\nPower-up buttons - Use level rewards\nF11 - Toggle fullscreen\nEsc - Toggle menu"
 	controls_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_apply_menu_label_style(controls_text)
+	_apply_menu_label_style(controls_text, 28)
 	panel.add_child(controls_text)
 
 	var back_button := _create_menu_button("Back")

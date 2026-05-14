@@ -4,16 +4,18 @@ const WindowModeHelper = preload("res://project/scripts/core/window_mode.gd")
 
 @onready var main_button: VBoxContainer = $Main_Button
 @onready var options_button: Panel = $Options_Button
-@onready var help_panel: Control = $Help_Panel
+@onready var help_panel: Panel = $Control
 @onready var resolution_option: OptionButton = $Options_Button/VBoxContainer/Resolution
-
-
+@onready var title_label: Label = $Label
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	main_button.visible = true
 	options_button.visible = false
-	help_panel.visible = false
+	if help_panel != null:
+		help_panel.visible = false
+	if title_label != null:
+		title_label.visible = true
 	MusicManager.play_music()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
@@ -34,13 +36,17 @@ func _on_option_pressed() -> void:
 	print("Setting pressed")
 	main_button.visible = false
 	options_button.visible = true
+	if title_label != null:
+		title_label.visible = false
 	_sync_resolution_option()
 	
 func _on_help_pressed() -> void:
-	print("Help pressed")
+	print("Control pressed")
 	main_button.visible = false
-	help_panel.visible = true
-	
+	if title_label != null:
+		title_label.visible = false
+	if help_panel != null:
+		help_panel.visible = true
 
 func _on_exit_pressed() -> void:
 	get_tree().quit()
