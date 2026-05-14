@@ -36,6 +36,9 @@ const HAPPINESS_MAX: int = 100
 const HAPPINESS_BUILDING_PERCENT: int = 5
 const HAPPINESS_BUILDING_ROAD_BONUS_PERCENT: int = 5
 const HAPPINESS_ROAD_CONNECTION_PERCENT: int = 3
+const PLACEMENT_INDICATOR_RADIUS: float = 2.18
+const PLACEMENT_INDICATOR_HEIGHT: float = 0.04
+const PLACEMENT_INDICATOR_Y: float = 0.11
 const BASE_XP_TO_LEVEL: int = 4
 const XP_GROWTH_PER_LEVEL: int = 2
 const POWERUP_REWARD_MIN: int = 2
@@ -144,6 +147,10 @@ var terrain_types: Dictionary = {}
 var terrain_kinds: Dictionary = {}
 var object_kinds: Dictionary = {}
 var happiness_cell_scores: Dictionary = {}
+var placement_indicators: Array[MeshInstance3D] = []
+var placement_indicator_mesh: CylinderMesh = null
+var placement_valid_material: StandardMaterial3D = null
+var placement_invalid_material: StandardMaterial3D = null
 var menu_panel: PanelContainer = null
 var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
@@ -217,6 +224,7 @@ func _start_placement(target_model: Node3D):
 	var focus_owner = get_viewport().gui_get_focus_owner()
 	if focus_owner:
 		focus_owner.release_focus()
+	_refresh_placement_indicators()
 
 func start_card_placement(card: Node2D) -> void:
 	if card == null:
@@ -329,6 +337,7 @@ func _rotate_current_placement() -> void:
 func _cancel_placement():
 	is_placing = false
 	_hide_all_previews()
+	_clear_placement_indicators()
 	current_active_model = null
 	current_rotation_steps = 0
 
@@ -429,6 +438,79 @@ func _has_adjacent_terrain(cell: Vector2i) -> bool:
 		if terrain_cells.has(cell + direction):
 			return true
 	return false
+
+func _refresh_placement_indicators() -> void:
+	_clear_placement_indicators()
+	if current_active_model == null:
+		return
+
+	_ensure_placement_indicator_resources()
+	var placement_layer := _get_placement_layer(current_active_model)
+	var indicator_cells := _get_placement_indicator_cells(placement_layer)
+
+	for cell_key in indicator_cells.keys():
+		var cell: Vector2i = cell_key
+		var is_valid := bool(indicator_cells[cell])
+		_create_placement_indicator(cell, is_valid)
+
+func _get_placement_indicator_cells(placement_layer: String) -> Dictionary:
+	var indicator_cells := {}
+	if placement_layer == PLACEMENT_OBJECT:
+		for cell_key in terrain_cells.keys():
+			var cell: Vector2i = cell_key
+			indicator_cells[cell] = _can_place_at(cell, placement_layer)
+		return indicator_cells
+
+	if placement_layer == PLACEMENT_TERRAIN:
+		for cell_key in terrain_cells.keys():
+			var cell: Vector2i = cell_key
+			indicator_cells[cell] = false
+			for direction: Vector2i in AXIAL_DIRECTIONS:
+				var candidate := cell + direction
+				if terrain_cells.has(candidate):
+					continue
+				indicator_cells[candidate] = _can_place_at(candidate, placement_layer)
+
+	return indicator_cells
+
+func _create_placement_indicator(cell: Vector2i, is_valid: bool) -> void:
+	var indicator := MeshInstance3D.new()
+	indicator.name = "PlacementValid" if is_valid else "PlacementBlocked"
+	indicator.mesh = placement_indicator_mesh
+	indicator.material_override = placement_valid_material if is_valid else placement_invalid_material
+	var world_position := hex_grid.axial_to_world(cell.x, cell.y)
+	world_position.y = PLACEMENT_INDICATOR_Y
+	indicator.global_position = world_position
+	world_node.add_child(indicator)
+	placement_indicators.append(indicator)
+
+func _clear_placement_indicators() -> void:
+	for indicator: MeshInstance3D in placement_indicators:
+		if indicator != null and is_instance_valid(indicator):
+			indicator.queue_free()
+	placement_indicators.clear()
+
+func _ensure_placement_indicator_resources() -> void:
+	if placement_indicator_mesh == null:
+		placement_indicator_mesh = CylinderMesh.new()
+		placement_indicator_mesh.top_radius = PLACEMENT_INDICATOR_RADIUS
+		placement_indicator_mesh.bottom_radius = PLACEMENT_INDICATOR_RADIUS
+		placement_indicator_mesh.height = PLACEMENT_INDICATOR_HEIGHT
+		placement_indicator_mesh.radial_segments = 6
+		placement_indicator_mesh.rings = 1
+	if placement_valid_material == null:
+		placement_valid_material = _make_placement_indicator_material(Color(0.1, 0.95, 0.28, 0.38))
+	if placement_invalid_material == null:
+		placement_invalid_material = _make_placement_indicator_material(Color(1.0, 0.08, 0.08, 0.34))
+
+func _make_placement_indicator_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.disable_receive_shadows = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
 
 func _register_placed_item(cell: Vector2i, placement_layer: String, item: Node3D) -> void:
 	if placement_layer == PLACEMENT_TERRAIN:
