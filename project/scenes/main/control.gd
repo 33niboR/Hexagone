@@ -43,9 +43,12 @@ const HAPPINESS_ROAD_CONNECTION_PERCENT: int = 3
 const HAPPINESS_CHECK_CARDS: int = 4
 const HAPPINESS_CHECK_TARGET: int = 10
 const HAPPINESS_RECOVERY_CARDS: int = 3
-const PLACEMENT_INDICATOR_RADIUS: float = 2.18
+const PLACEMENT_INDICATOR_RADIUS: float = 2.34
 const PLACEMENT_INDICATOR_HEIGHT: float = 0.04
 const PLACEMENT_INDICATOR_Y: float = 0.11
+const MAP_SAVE_VERSION: int = 1
+const DEFAULT_MAP_FILE: String = "user://hexagone_map.json"
+const TERRAIN_TILE_SCALE: float = 2.0
 const BASE_XP_TO_LEVEL: int = 4
 const XP_GROWTH_PER_LEVEL: int = 2
 const POWERUP_REWARD_MIN: int = 2
@@ -165,6 +168,8 @@ var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
 var restart_confirm_dialog: ConfirmationDialog = null
+var export_map_dialog: FileDialog = null
+var load_map_dialog: FileDialog = null
 var happiness_warning_dialog: AcceptDialog = null
 var game_over_dialog: AcceptDialog = null
 var win_dialog: ConfirmationDialog = null
@@ -220,6 +225,7 @@ func _ready():
 	_create_additional_placeables()
 	_hide_all_previews()
 	_create_ingame_menu()
+	_create_map_file_dialogs()
 	_create_progression_hud()
 	_create_selected_hint_label()
 	_sync_progression_hud()
@@ -349,6 +355,9 @@ func _place_item(pos: Vector3):
 		new_mesh.create_trimesh_collision()
 	new_item.set_meta("placement_layer", placement_layer)
 	new_item.set_meta("placeable_kind", _get_placeable_kind(current_active_model))
+	if current_active_model.has_meta("mesh_path"):
+		new_item.set_meta("mesh_path", str(current_active_model.get_meta("mesh_path")))
+	new_item.set_meta("map_scale", current_active_model.scale.x)
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
 	_register_placed_item(cell, placement_layer, new_item)
@@ -412,12 +421,18 @@ func _create_additional_placeables() -> void:
 		preview.name = id
 		preview.mesh = mesh_resource as Mesh
 		preview.scale = Vector3(2.0, 2.0, 2.0)
+		preview.set_meta("mesh_path", mesh_path)
+		preview.set_meta("map_scale", 2.0)
 		build_preview_node.add_child(preview)
 		_register_placeable_preview(preview, placement_layer, terrain_type, placeable_kind)
 
 func _register_placeable_preview(preview: Node3D, placement_layer: String, terrain_type: String = TERRAIN_LAND, placeable_kind: String = "") -> void:
 	preview.set_meta("placement_layer", placement_layer)
 	preview.set_meta("placeable_kind", placeable_kind if not placeable_kind.is_empty() else _guess_placeable_kind(preview.name, placement_layer, terrain_type))
+	var mesh_path := _get_node_mesh_path(preview)
+	if not mesh_path.is_empty():
+		preview.set_meta("mesh_path", mesh_path)
+	preview.set_meta("map_scale", preview.scale.x)
 	if placement_layer == PLACEMENT_TERRAIN:
 		preview.set_meta("terrain_type", terrain_type)
 	placeable_previews.append(preview)
@@ -442,6 +457,8 @@ func _seed_existing_terrain_cells() -> void:
 		node_3d.set_meta("placement_layer", PLACEMENT_TERRAIN)
 		node_3d.set_meta("terrain_type", TERRAIN_LAND)
 		node_3d.set_meta("placeable_kind", KIND_GRASS)
+		node_3d.set_meta("mesh_path", ASSET_ROOT + "tiles/base/hex_grass.obj")
+		node_3d.set_meta("map_scale", 2.0)
 
 func _can_place_at(cell: Vector2i, placement_layer: String) -> bool:
 	if placement_layer == PLACEMENT_TERRAIN:
@@ -531,9 +548,9 @@ func _ensure_placement_indicator_resources() -> void:
 		placement_indicator_mesh.radial_segments = 6
 		placement_indicator_mesh.rings = 1
 	if placement_valid_material == null:
-		placement_valid_material = _make_placement_indicator_material(Color(0.1, 0.95, 0.28, 0.38))
+		placement_valid_material = _make_placement_indicator_material(Color(0.1, 0.95, 0.28, 0.19))
 	if placement_invalid_material == null:
-		placement_invalid_material = _make_placement_indicator_material(Color(1.0, 0.08, 0.08, 0.34))
+		placement_invalid_material = _make_placement_indicator_material(Color(1.0, 0.08, 0.08, 0.17))
 
 func _make_placement_indicator_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -803,6 +820,8 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	preview.mesh = mesh_resource as Mesh
 	var preview_scale := float(definition.get("scale", 2.0))
 	preview.scale = Vector3(preview_scale, preview_scale, preview_scale)
+	preview.set_meta("mesh_path", str(definition["mesh_path"]))
+	preview.set_meta("map_scale", preview_scale)
 	if str(definition["placement_layer"]) == PLACEMENT_TERRAIN and str(definition.get("terrain_type", TERRAIN_LAND)) == TERRAIN_LAND:
 		_apply_default_land_tile_material(preview)
 	build_preview_node.add_child(preview)
@@ -984,9 +1003,9 @@ func _create_ingame_menu() -> void:
 	menu_panel.anchor_right = 0.5
 	menu_panel.anchor_bottom = 0.5
 	menu_panel.offset_left = -MENU_WIDTH / 2.0
-	menu_panel.offset_top = -201.5
+	menu_panel.offset_top = -285.0
 	menu_panel.offset_right = MENU_WIDTH / 2.0
-	menu_panel.offset_bottom = 201.5
+	menu_panel.offset_bottom = 285.0
 	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	menu_layer.add_child(menu_panel)
 	_create_restart_confirm_dialog()
@@ -1017,6 +1036,14 @@ func _create_ingame_menu() -> void:
 	var controls_button := _create_menu_button("Controls")
 	controls_button.pressed.connect(_show_menu_section.bind("controls"))
 	menu_buttons_panel.add_child(controls_button)
+
+	var export_button := _create_menu_button("Export Map")
+	export_button.pressed.connect(_request_export_map)
+	menu_buttons_panel.add_child(export_button)
+
+	var load_button := _create_menu_button("Load Map")
+	load_button.pressed.connect(_request_load_map)
+	menu_buttons_panel.add_child(load_button)
 	
 	var restart_button := _create_menu_button("Restart")
 	restart_button.pressed.connect(_request_restart_game)
@@ -1089,6 +1116,273 @@ func _create_restart_confirm_dialog() -> void:
 		menu_layer.add_child(win_dialog)
 	else:
 		add_child(win_dialog)
+
+func _create_map_file_dialogs() -> void:
+	export_map_dialog = FileDialog.new()
+	export_map_dialog.title = "Export Map"
+	export_map_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	export_map_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	export_map_dialog.filters = PackedStringArray(["*.json ; Hexagone map"])
+	export_map_dialog.current_file = "hexagone_map.json"
+	export_map_dialog.file_selected.connect(_export_map_to_file)
+	if menu_layer != null:
+		menu_layer.add_child(export_map_dialog)
+	else:
+		add_child(export_map_dialog)
+
+	load_map_dialog = FileDialog.new()
+	load_map_dialog.title = "Load Map"
+	load_map_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	load_map_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	load_map_dialog.filters = PackedStringArray(["*.json ; Hexagone map"])
+	load_map_dialog.file_selected.connect(_load_map_from_file)
+	if menu_layer != null:
+		menu_layer.add_child(load_map_dialog)
+	else:
+		add_child(load_map_dialog)
+
+func _request_export_map() -> void:
+	if export_map_dialog == null:
+		_export_map_to_file(DEFAULT_MAP_FILE)
+		return
+	export_map_dialog.popup_centered_ratio(0.72)
+
+func _request_load_map() -> void:
+	if load_map_dialog == null:
+		_load_map_from_file(DEFAULT_MAP_FILE)
+		return
+	load_map_dialog.popup_centered_ratio(0.72)
+
+func _export_map_to_file(path: String) -> void:
+	var export_path := path
+	if export_path.get_extension().is_empty():
+		export_path += ".json"
+
+	var file := FileAccess.open(export_path, FileAccess.WRITE)
+	if file == null:
+		push_error("Could not export map to " + export_path + ": " + error_string(FileAccess.get_open_error()))
+		return
+
+	var map_data := _create_map_export_data()
+	file.store_string(JSON.stringify(map_data, "\t"))
+	file.close()
+	print("Map exported to ", export_path)
+
+func _load_map_from_file(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		push_error("Map file does not exist: " + path)
+		return
+
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_error("Could not load map from " + path + ": " + error_string(FileAccess.get_open_error()))
+		return
+
+	var text := file.get_as_text()
+	file.close()
+
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("Map file is not valid JSON: " + path)
+		return
+
+	var map_data: Dictionary = parsed as Dictionary
+	_apply_map_data(map_data)
+	print("Map loaded from ", path)
+
+func _create_map_export_data() -> Dictionary:
+	var terrain_entries: Array[Dictionary] = []
+	var object_entries: Array[Dictionary] = []
+
+	for cell_key in terrain_cells.keys():
+		var cell: Vector2i = cell_key
+		var terrain_node := terrain_cells[cell] as Node3D
+		if terrain_node == null or not is_instance_valid(terrain_node):
+			continue
+		terrain_entries.append(_serialize_map_item(cell, PLACEMENT_TERRAIN, terrain_node))
+
+	for cell_key in object_cells.keys():
+		var cell: Vector2i = cell_key
+		var object_node := object_cells[cell] as Node3D
+		if object_node == null or not is_instance_valid(object_node):
+			continue
+		object_entries.append(_serialize_map_item(cell, PLACEMENT_OBJECT, object_node))
+
+	return {
+		"version": MAP_SAVE_VERSION,
+		"terrain": terrain_entries,
+		"objects": object_entries,
+		"state": {
+			"happiness": happiness,
+			"level": player_level,
+			"xp": current_xp,
+			"xp_to_next_level": xp_to_next_level,
+			"bigger_hand_uses": bigger_hand_uses,
+			"objective_cards_played": objective_cards_played,
+			"objective_start_happiness": objective_start_happiness,
+			"recovery_active": recovery_active,
+			"recovery_target_happiness": recovery_target_happiness,
+			"game_over": game_over,
+			"has_won": has_won,
+			"endless_mode": endless_mode
+		}
+	}
+
+func _serialize_map_item(cell: Vector2i, placement_layer: String, item: Node3D) -> Dictionary:
+	var mesh_path := ""
+	if item.has_meta("mesh_path"):
+		mesh_path = str(item.get_meta("mesh_path"))
+	if mesh_path.is_empty():
+		mesh_path = _get_node_mesh_path(item)
+
+	return {
+		"q": cell.x,
+		"r": cell.y,
+		"y": item.global_position.y,
+		"rotation_y": item.rotation_degrees.y,
+		"scale": _get_map_item_scale(item),
+		"mesh_path": mesh_path,
+		"placement_layer": placement_layer,
+		"terrain_type": str(item.get_meta("terrain_type")) if item.has_meta("terrain_type") else TERRAIN_LAND,
+		"placeable_kind": _get_placeable_kind(item),
+		"terrain_requirement": str(item.get_meta("terrain_requirement")) if item.has_meta("terrain_requirement") else TERRAIN_LAND
+	}
+
+func _apply_map_data(map_data: Dictionary) -> void:
+	_cancel_placement()
+	_clear_selected_object()
+	_clear_map_nodes()
+	terrain_cells.clear()
+	object_cells.clear()
+	terrain_types.clear()
+	terrain_kinds.clear()
+	object_kinds.clear()
+	happiness_cell_scores.clear()
+
+	var terrain_variant: Variant = map_data.get("terrain", [])
+	if typeof(terrain_variant) == TYPE_ARRAY:
+		var terrain_entries: Array = terrain_variant as Array
+		for entry_variant: Variant in terrain_entries:
+			if typeof(entry_variant) == TYPE_DICTIONARY:
+				_instantiate_map_item(entry_variant as Dictionary, PLACEMENT_TERRAIN)
+
+	var object_variant: Variant = map_data.get("objects", [])
+	if typeof(object_variant) == TYPE_ARRAY:
+		var object_entries: Array = object_variant as Array
+		for entry_variant: Variant in object_entries:
+			if typeof(entry_variant) == TYPE_DICTIONARY:
+				_instantiate_map_item(entry_variant as Dictionary, PLACEMENT_OBJECT)
+
+	var state_variant: Variant = map_data.get("state", {})
+	if typeof(state_variant) == TYPE_DICTIONARY:
+		_apply_loaded_game_state(state_variant as Dictionary)
+	else:
+		_reset_loaded_game_state()
+
+	_sync_progression_hud()
+	_hide_ingame_menu()
+
+func _instantiate_map_item(entry: Dictionary, placement_layer: String) -> void:
+	var mesh_path := str(entry.get("mesh_path", ""))
+	if mesh_path.is_empty():
+		push_warning("Skipped map item without mesh path")
+		return
+
+	var mesh_resource := load(mesh_path)
+	if not (mesh_resource is Mesh):
+		push_warning("Skipped map item with missing mesh: " + mesh_path)
+		return
+
+	var cell := Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0)))
+	var item := MeshInstance3D.new()
+	item.name = "MapTerrain" if placement_layer == PLACEMENT_TERRAIN else "MapObject"
+	item.mesh = mesh_resource as Mesh
+	var logical_scale := _get_loaded_map_item_scale(entry, placement_layer, mesh_path)
+	var position := hex_grid.axial_to_world(cell.x, cell.y)
+	position.y = float(entry.get("y", 0.0))
+	item.set_meta("mesh_path", mesh_path)
+	item.set_meta("map_scale", logical_scale)
+	item.set_meta("placement_layer", placement_layer)
+	item.set_meta("placeable_kind", str(entry.get("placeable_kind", KIND_GRASS)))
+
+	if placement_layer == PLACEMENT_TERRAIN:
+		var terrain_type := str(entry.get("terrain_type", TERRAIN_LAND))
+		item.set_meta("terrain_type", terrain_type)
+		if terrain_type == TERRAIN_LAND:
+			_apply_default_land_tile_material(item)
+	else:
+		item.set_meta("terrain_requirement", str(entry.get("terrain_requirement", TERRAIN_LAND)))
+
+	world_node.add_child(item)
+	item.scale = Vector3(logical_scale, logical_scale, logical_scale)
+	item.global_position = position
+	item.rotation_degrees = Vector3(0.0, float(entry.get("rotation_y", 0.0)), 0.0)
+	item.create_trimesh_collision()
+	_register_placed_item(cell, placement_layer, item)
+
+func _clear_map_nodes() -> void:
+	for child: Node in world_node.get_children():
+		var node_3d := child as Node3D
+		if node_3d == null:
+			continue
+		if node_3d.has_meta("placement_layer") or node_3d.name.begins_with("HexTile") or node_3d.name.begins_with("MapTerrain") or node_3d.name.begins_with("MapObject"):
+			world_node.remove_child(node_3d)
+			node_3d.queue_free()
+
+func _apply_loaded_game_state(state: Dictionary) -> void:
+	happiness = clampi(int(state.get("happiness", HAPPINESS_START)), 0, HAPPINESS_MAX)
+	player_level = maxi(int(state.get("level", 1)), 1)
+	current_xp = maxi(int(state.get("xp", 0)), 0)
+	xp_to_next_level = maxi(int(state.get("xp_to_next_level", BASE_XP_TO_LEVEL)), 1)
+	bigger_hand_uses = clampi(int(state.get("bigger_hand_uses", 0)), 0, MAX_BIGGER_HAND_USES)
+	objective_cards_played = maxi(int(state.get("objective_cards_played", 0)), 0)
+	objective_start_happiness = clampi(int(state.get("objective_start_happiness", happiness)), 0, HAPPINESS_MAX)
+	recovery_active = bool(state.get("recovery_active", false))
+	recovery_target_happiness = clampi(int(state.get("recovery_target_happiness", 0)), 0, HAPPINESS_MAX)
+	game_over = bool(state.get("game_over", false))
+	has_won = bool(state.get("has_won", false))
+	endless_mode = bool(state.get("endless_mode", false))
+
+func _reset_loaded_game_state() -> void:
+	happiness = HAPPINESS_START
+	player_level = 1
+	current_xp = 0
+	xp_to_next_level = BASE_XP_TO_LEVEL
+	bigger_hand_uses = 0
+	game_over = false
+	has_won = false
+	endless_mode = false
+	_reset_happiness_objective()
+
+func _get_node_mesh_path(node: Node3D) -> String:
+	var mesh_instance := _find_first_mesh_instance(node)
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return ""
+	return mesh_instance.mesh.resource_path
+
+func _get_map_item_scale(item: Node3D) -> float:
+	if item.has_meta("map_scale"):
+		return float(item.get_meta("map_scale"))
+	var mesh_instance := _find_first_mesh_instance(item)
+	if mesh_instance != null:
+		return mesh_instance.scale.x
+	return item.scale.x
+
+func _get_loaded_map_item_scale(entry: Dictionary, placement_layer: String, mesh_path: String) -> float:
+	if placement_layer == PLACEMENT_TERRAIN:
+		return TERRAIN_TILE_SCALE
+
+	var saved_scale := float(entry.get("scale", 0.0))
+	var expected_scale := _get_default_object_scale(mesh_path, str(entry.get("placeable_kind", "")))
+	return maxf(saved_scale, expected_scale)
+
+func _get_default_object_scale(mesh_path: String, placeable_kind: String) -> float:
+	var key := (mesh_path + " " + placeable_kind).to_lower()
+	if key.contains("waterlily") or key.contains("waterplant") or key.contains("barrel"):
+		return 4.5
+	if key.contains("rock_single"):
+		return 4.0
+	return 2.0
 
 func _create_settings_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
@@ -1672,8 +1966,7 @@ func _get_snapped_mouse_position() -> Vector3:
 func _select_object_under_mouse() -> bool:
 	var clicked_object := _get_clicked_object()
 	if clicked_object == null:
-		selected_object = null
-		_hide_selected_hint()
+		_clear_selected_object()
 		return false
 
 	var cell: Vector2i = hex_grid.world_to_axial(clicked_object.global_position)
@@ -1684,9 +1977,13 @@ func _select_object_under_mouse() -> bool:
 		print("object selected: ", selected_object.name)
 		return true
 
-	selected_object = null
-	_hide_selected_hint()
+	_clear_selected_object()
 	return false
+
+func _clear_selected_object() -> void:
+	selected_object = null
+	selected_object_cell = Vector2i.ZERO
+	_hide_selected_hint()
 
 func _delete_selected_object() -> void:
 	if selected_object == null or not is_instance_valid(selected_object):
