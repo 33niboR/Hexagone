@@ -7,6 +7,7 @@
 [ext_resource type="ArrayMesh" uid="uid://b6f5gd3f2f0bn" path="res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/base/hex_grass.obj" id="5_wiwuw"]
 [ext_resource type="Script" uid="uid://ddppj02hs73e2" path="res://project/scenes/main/playercamera.gd" id="6_1hgs3"]
 [ext_resource type="PackedScene" uid="uid://wu7ope3qv0c7" path="res://Draw_Cards/Scenes/draw_card.tscn" id="7_mddyi"]
+[ext_resource type="PackedScene" path="res://project/scenes/environment/water_background.tscn" id="8_waterbg"]
 
 [sub_resource type="Environment" id="Environment_sunny"]
 background_mode = 1
@@ -62,6 +63,8 @@ shadow_mesh = SubResource("ArrayMesh_d6vga")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="World" unique_id=1176353552]
 environment = SubResource("Environment_sunny")
+
+[node name="WaterBackground" parent="World" instance=ExtResource("8_waterbg")]
 
 [node name="HexTile" parent="World" unique_id=1231653440 instance=ExtResource("1_itjsd")]
 

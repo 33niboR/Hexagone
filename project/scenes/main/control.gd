@@ -148,6 +148,7 @@ var menu_panel: PanelContainer = null
 var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
+var restart_confirm_dialog: ConfirmationDialog = null
 var resolution_option: OptionButton = null
 var default_land_tile_material: Material = null
 var selected_object: Node3D = null
@@ -762,6 +763,7 @@ func _create_ingame_menu() -> void:
 	menu_panel.offset_bottom = 201.5
 	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(menu_panel)
+	_create_restart_confirm_dialog()
 
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 20)
@@ -791,7 +793,7 @@ func _create_ingame_menu() -> void:
 	menu_buttons_panel.add_child(controls_button)
 	
 	var restart_button := _create_menu_button("Restart")
-	restart_button.pressed.connect(_restart_game)
+	restart_button.pressed.connect(_request_restart_game)
 	menu_buttons_panel.add_child(restart_button)
 
 	var exit_button := _create_menu_button("Exit Game")
@@ -814,6 +816,15 @@ func _create_menu_button(label: String) -> Button:
 	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_apply_menu_button_style(button, 35)
 	return button
+
+func _create_restart_confirm_dialog() -> void:
+	restart_confirm_dialog = ConfirmationDialog.new()
+	restart_confirm_dialog.title = "Restart Game"
+	restart_confirm_dialog.dialog_text = "Are you sure you want to restart?"
+	restart_confirm_dialog.ok_button_text = "Restart"
+	restart_confirm_dialog.cancel_button_text = "Cancel"
+	restart_confirm_dialog.confirmed.connect(_restart_game)
+	add_child(restart_confirm_dialog)
 
 func _create_settings_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
@@ -841,7 +852,7 @@ func _create_settings_panel() -> VBoxContainer:
 	panel.add_child(_create_volume_slider("Music"))
 
 	var sfx_label := Label.new()
-	sfx_label.text = "SFX:"
+	sfx_label.text = "Soundeffects:"
 	_apply_menu_label_style(sfx_label, 50)
 	panel.add_child(sfx_label)
 	panel.add_child(_create_volume_slider("SFX"))
@@ -1252,6 +1263,12 @@ func _set_bus_volume(value: float, bus_name: String) -> void:
 
 func _exit_game() -> void:
 	get_tree().quit()
+
+func _request_restart_game() -> void:
+	if restart_confirm_dialog == null:
+		_restart_game()
+		return
+	restart_confirm_dialog.popup_centered()
 
 func _restart_game() -> void:
 	_hide_ingame_menu()
