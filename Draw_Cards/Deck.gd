@@ -13,6 +13,10 @@ var draw_pile: Array[CardData] = []
 
 func _ready() -> void:
 	initialize_deck()
+	var area := get_node_or_null("Area2D") as Area2D
+	if area != null:
+		area.mouse_entered.connect(_on_area_2d_mouse_entered)
+		area.mouse_exited.connect(_on_area_2d_mouse_exited)
 
 func initialize_deck() -> void:
 	draw_pile = deck_data.duplicate()
@@ -164,3 +168,13 @@ func _on_area_2d_input_event(viewport: Node, event: InputEvent, shape_idx: int) 
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			print("Deck Clicked")
 			deck_clicked.emit()
+
+func _on_area_2d_mouse_entered() -> void:
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("request_interact_cursor"):
+		placement_controller.request_interact_cursor()
+
+func _on_area_2d_mouse_exited() -> void:
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("release_interact_cursor"):
+		placement_controller.release_interact_cursor()

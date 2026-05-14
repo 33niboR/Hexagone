@@ -52,10 +52,12 @@ func setup(card_data: CardData) -> void:
 
 func _on_area_2d_mouse_entered() -> void:
 	scale = base_scale * hover_scale_multiplier
+	_request_interact_cursor()
 	hovered.emit(self)
 
 func _on_area_2d_mouse_exited() -> void:
 	scale = base_scale
+	_release_interact_cursor()
 	hovered_off.emit(self)
 
 func _on_area_2d_input_event(viewport, event, shape_idx) -> void:
@@ -64,3 +66,13 @@ func _on_area_2d_input_event(viewport, event, shape_idx) -> void:
 		drag_offset = global_position - get_viewport().get_mouse_position()
 		card_selected.emit(self)
 		viewport.set_input_as_handled()
+
+func _request_interact_cursor() -> void:
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("request_interact_cursor"):
+		placement_controller.request_interact_cursor()
+
+func _release_interact_cursor() -> void:
+	var placement_controller := get_tree().get_first_node_in_group("placement_controller")
+	if placement_controller != null and placement_controller.has_method("release_interact_cursor"):
+		placement_controller.release_interact_cursor()

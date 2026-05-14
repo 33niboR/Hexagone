@@ -2,6 +2,10 @@ extends Control
 
 const HexGrid = preload("res://project/scripts/grid/hex_grid.gd")
 const WindowModeHelper = preload("res://project/scripts/core/window_mode.gd")
+const CURSOR_DEFAULT: Texture2D = preload("res://assets/ui/cursor_default.png")
+const CURSOR_INTERACT: Texture2D = preload("res://assets/ui/cursor_interact.png")
+const CURSOR_DEFAULT_HOTSPOT: Vector2 = Vector2(2.0, 2.0)
+const CURSOR_INTERACT_HOTSPOT: Vector2 = Vector2(14.0, 2.0)
 const MENU_BUTTON_FONT: FontFile = preload("res://Hexagone_Title_Screen/Fonts/alagard/alagard.ttf")
 const MENU_TITLE_FONT: FontFile = preload("res://Hexagone_Title_Screen/Fonts/thaleahfat/ThaleahFat.ttf")
 const CARD_WIDTH: float = 170.0
@@ -193,10 +197,13 @@ var recovery_target_happiness: int = 0
 var game_over: bool = false
 var has_won: bool = false
 var endless_mode: bool = false
+var cursor_interact_requests: int = 0
+var cursor_over_world_interaction: bool = false
 
 func _ready():
 	add_to_group("placement_controller")
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_default_cursor()
 	if building_button:
 		building_button.hide()
 	if river_button:
@@ -282,6 +289,11 @@ func _process(_delta):
 	if is_placing and current_active_model:
 		var target_pos: Vector3 = _get_snapped_mouse_position()
 		current_active_model.global_position = target_pos
+		_set_world_interaction_cursor(false)
+	elif menu_panel == null or not menu_panel.visible:
+		_update_world_interaction_cursor()
+	else:
+		_set_world_interaction_cursor(false)
 
 func _unhandled_input(event):
 	if menu_panel != null and menu_panel.visible:
@@ -531,6 +543,45 @@ func _make_placement_indicator_material(color: Color) -> StandardMaterial3D:
 	material.disable_receive_shadows = true
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
+
+func request_interact_cursor() -> void:
+	cursor_interact_requests += 1
+	_refresh_mouse_cursor()
+
+func release_interact_cursor() -> void:
+	cursor_interact_requests = maxi(cursor_interact_requests - 1, 0)
+	_refresh_mouse_cursor()
+
+func set_interact_cursor() -> void:
+	cursor_interact_requests = maxi(cursor_interact_requests, 1)
+	_refresh_mouse_cursor()
+
+func set_default_cursor() -> void:
+	cursor_interact_requests = 0
+	cursor_over_world_interaction = false
+	_refresh_mouse_cursor()
+
+func _apply_default_cursor() -> void:
+	Input.set_custom_mouse_cursor(CURSOR_DEFAULT, Input.CURSOR_ARROW, CURSOR_DEFAULT_HOTSPOT)
+	_refresh_mouse_cursor()
+
+func _refresh_mouse_cursor() -> void:
+	var use_interact_cursor := cursor_interact_requests > 0 or cursor_over_world_interaction
+	var texture := CURSOR_INTERACT if use_interact_cursor else CURSOR_DEFAULT
+	var hotspot := CURSOR_INTERACT_HOTSPOT if use_interact_cursor else CURSOR_DEFAULT_HOTSPOT
+	Input.set_custom_mouse_cursor(texture, Input.CURSOR_ARROW, hotspot)
+
+func _set_world_interaction_cursor(is_interactive: bool) -> void:
+	if cursor_over_world_interaction == is_interactive:
+		return
+	cursor_over_world_interaction = is_interactive
+	_refresh_mouse_cursor()
+
+func _update_world_interaction_cursor() -> void:
+	if get_viewport().get_mouse_position().y > get_viewport_rect().size.y - 260.0:
+		_set_world_interaction_cursor(false)
+		return
+	_set_world_interaction_cursor(_get_hovered_object() != null)
 
 func _register_placed_item(cell: Vector2i, placement_layer: String, item: Node3D) -> void:
 	if placement_layer == PLACEMENT_TERRAIN:
@@ -920,6 +971,7 @@ func _create_ingame_menu() -> void:
 	menu_button.offset_right = -18.0
 	menu_button.offset_bottom = 54.0
 	_apply_menu_button_style(menu_button, 26)
+	_register_interactive_control(menu_button)
 	menu_button.pressed.connect(_toggle_ingame_menu)
 	menu_layer.add_child(menu_button)
 
@@ -989,7 +1041,12 @@ func _create_menu_button(label: String) -> Button:
 	button.custom_minimum_size = Vector2(0.0, 52.0)
 	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_apply_menu_button_style(button, 35)
+	_register_interactive_control(button)
 	return button
+
+func _register_interactive_control(control: Control) -> void:
+	control.mouse_entered.connect(request_interact_cursor)
+	control.mouse_exited.connect(release_interact_cursor)
 
 func _create_restart_confirm_dialog() -> void:
 	restart_confirm_dialog = ConfirmationDialog.new()
@@ -1046,6 +1103,7 @@ func _create_settings_panel() -> VBoxContainer:
 	resolution_option.add_item("Windowed", 0)
 	resolution_option.add_item("Fullscreen", 1)
 	_apply_menu_button_style(resolution_option, 30)
+	_register_interactive_control(resolution_option)
 	resolution_option.item_selected.connect(_on_resolution_selected)
 	panel.add_child(resolution_option)
 	_sync_resolution_option()
@@ -1284,6 +1342,7 @@ func _sync_powerup_buttons() -> void:
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		button.custom_minimum_size = Vector2(0.0, 38.0)
 		_apply_menu_button_style(button, 20)
+		_register_interactive_control(button)
 		button.pressed.connect(_activate_powerup.bind(index))
 		powerup_list.add_child(button)
 
@@ -1337,6 +1396,7 @@ func _show_search_panel(powerup_index: int) -> void:
 		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
 		card_button.custom_minimum_size = Vector2(190.0, 42.0)
 		_apply_menu_button_style(card_button, 18)
+		_register_interactive_control(card_button)
 		card_button.pressed.connect(_finish_search_powerup.bind(card_data))
 		search_list.add_child(card_button)
 
@@ -1407,6 +1467,7 @@ func _create_volume_slider(bus_name: String) -> HSlider:
 	slider.step = 0.01
 	slider.value = _get_bus_volume_linear(bus_name)
 	slider.value_changed.connect(_set_bus_volume.bind(bus_name))
+	_register_interactive_control(slider)
 	return slider
 
 func _toggle_ingame_menu() -> void:
@@ -1649,6 +1710,9 @@ func _delete_selected_object() -> void:
 	_hide_selected_hint()
 
 func _get_clicked_object() -> Node3D:
+	return _get_hovered_object()
+
+func _get_hovered_object() -> Node3D:
 	var viewport := get_viewport()
 	var camera := viewport.get_camera_3d()
 	if camera == null:
