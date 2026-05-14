@@ -36,6 +36,9 @@ const HAPPINESS_MAX: int = 100
 const HAPPINESS_BUILDING_PERCENT: int = 5
 const HAPPINESS_BUILDING_ROAD_BONUS_PERCENT: int = 5
 const HAPPINESS_ROAD_CONNECTION_PERCENT: int = 3
+const HAPPINESS_CHECK_CARDS: int = 4
+const HAPPINESS_CHECK_TARGET: int = 10
+const HAPPINESS_RECOVERY_CARDS: int = 3
 const PLACEMENT_INDICATOR_RADIUS: float = 2.18
 const PLACEMENT_INDICATOR_HEIGHT: float = 0.04
 const PLACEMENT_INDICATOR_Y: float = 0.11
@@ -158,6 +161,9 @@ var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
 var restart_confirm_dialog: ConfirmationDialog = null
+var happiness_warning_dialog: AcceptDialog = null
+var game_over_dialog: AcceptDialog = null
+var win_dialog: ConfirmationDialog = null
 var resolution_option: OptionButton = null
 var default_land_tile_material: Material = null
 var selected_object: Node3D = null
@@ -173,12 +179,20 @@ var xp_label: Label = null
 var xp_bar: ProgressBar = null
 var happiness_label: Label = null
 var happiness_bar: ProgressBar = null
+var objective_label: Label = null
 var powerup_list: VBoxContainer = null
 var search_panel: PanelContainer = null
 var search_list: GridContainer = null
 var pending_search_powerup_index: int = -1
 var bigger_hand_uses: int = 0
 var happiness: int = HAPPINESS_START
+var objective_cards_played: int = 0
+var objective_start_happiness: int = HAPPINESS_START
+var recovery_active: bool = false
+var recovery_target_happiness: int = 0
+var game_over: bool = false
+var has_won: bool = false
+var endless_mode: bool = false
 
 func _ready():
 	add_to_group("placement_controller")
@@ -305,6 +319,8 @@ func _unhandled_input(event):
 			return
 
 func _place_item(pos: Vector3):
+	if game_over:
+		return
 	if not current_active_model: return
 	var cell: Vector2i = hex_grid.world_to_axial(pos)
 	var placement_layer: String = _get_placement_layer(current_active_model)
@@ -324,8 +340,10 @@ func _place_item(pos: Vector3):
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
 	_register_placed_item(cell, placement_layer, new_item)
+	var happiness_before := happiness
 	_apply_happiness_for_placement(cell, placement_layer, new_item)
 	_gain_progression_xp(XP_PER_PLACEMENT)
+	_register_objective_card_played(maxi(happiness - happiness_before, 0))
 	
 	print("placement successful: ", current_active_model.name)
 	_play_place_sfx()
@@ -574,6 +592,65 @@ func _has_adjacent_road(cell: Vector2i) -> bool:
 
 func _change_happiness(delta: int) -> void:
 	happiness = clampi(happiness + delta, 0, HAPPINESS_MAX)
+	_sync_progression_hud()
+	_check_win_condition()
+
+func _register_objective_card_played(_happiness_delta: int) -> void:
+	if game_over or endless_mode:
+		return
+
+	objective_cards_played += 1
+
+	if recovery_active:
+		if happiness >= recovery_target_happiness:
+			_reset_happiness_objective()
+		elif objective_cards_played >= HAPPINESS_RECOVERY_CARDS:
+			_trigger_game_over()
+		_sync_progression_hud()
+		return
+
+	if objective_cards_played >= HAPPINESS_CHECK_CARDS:
+		var gained := happiness - objective_start_happiness
+		if gained >= HAPPINESS_CHECK_TARGET:
+			_reset_happiness_objective()
+		else:
+			_start_happiness_recovery(HAPPINESS_CHECK_TARGET - gained)
+	_sync_progression_hud()
+
+func _reset_happiness_objective() -> void:
+	recovery_active = false
+	objective_cards_played = 0
+	objective_start_happiness = happiness
+	recovery_target_happiness = 0
+
+func _start_happiness_recovery(missing_happiness: int) -> void:
+	recovery_active = true
+	objective_cards_played = 0
+	recovery_target_happiness = min(happiness + missing_happiness, HAPPINESS_MAX)
+
+	if happiness_warning_dialog != null:
+		happiness_warning_dialog.dialog_text = "Happiness only increased by " + str(HAPPINESS_CHECK_TARGET - missing_happiness) + "% in the last " + str(HAPPINESS_CHECK_CARDS) + " cards.\nGet +" + str(missing_happiness) + "% more happiness in the next " + str(HAPPINESS_RECOVERY_CARDS) + " cards."
+		happiness_warning_dialog.popup_centered()
+
+func _trigger_game_over() -> void:
+	game_over = true
+	if game_over_dialog != null:
+		game_over_dialog.dialog_text = "Game over.\nReach " + str(recovery_target_happiness) + "% happiness before the recovery window ends."
+		game_over_dialog.popup_centered()
+
+func _check_win_condition() -> void:
+	if has_won or endless_mode or happiness < HAPPINESS_MAX:
+		return
+	has_won = true
+	if win_dialog != null:
+		win_dialog.dialog_text = "You reached 100% happiness.\nRestart or continue in endless mode?"
+		win_dialog.popup_centered()
+
+func _continue_endless_mode() -> void:
+	endless_mode = true
+	has_won = true
+	game_over = false
+	recovery_active = false
 	_sync_progression_hud()
 
 
@@ -926,6 +1003,36 @@ func _create_restart_confirm_dialog() -> void:
 	else:
 		add_child(restart_confirm_dialog)
 
+	happiness_warning_dialog = AcceptDialog.new()
+	happiness_warning_dialog.title = "Happiness Warning"
+	happiness_warning_dialog.ok_button_text = "Understood"
+	if menu_layer != null:
+		menu_layer.add_child(happiness_warning_dialog)
+	else:
+		add_child(happiness_warning_dialog)
+
+	game_over_dialog = AcceptDialog.new()
+	game_over_dialog.title = "Game Over"
+	game_over_dialog.dialog_text = "The town did not recover enough happiness."
+	game_over_dialog.ok_button_text = "Restart"
+	game_over_dialog.confirmed.connect(_restart_game)
+	if menu_layer != null:
+		menu_layer.add_child(game_over_dialog)
+	else:
+		add_child(game_over_dialog)
+
+	win_dialog = ConfirmationDialog.new()
+	win_dialog.title = "Victory"
+	win_dialog.dialog_text = "Happiness reached 100%."
+	win_dialog.ok_button_text = "Restart"
+	win_dialog.cancel_button_text = "Continue"
+	win_dialog.confirmed.connect(_restart_game)
+	win_dialog.get_cancel_button().pressed.connect(_continue_endless_mode)
+	if menu_layer != null:
+		menu_layer.add_child(win_dialog)
+	else:
+		add_child(win_dialog)
+
 func _create_settings_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
 	panel.add_theme_constant_override("separation", 20)
@@ -1029,6 +1136,13 @@ func _create_progression_hud() -> void:
 	happiness_bar.custom_minimum_size = Vector2(0.0, 20.0)
 	layout.add_child(happiness_bar)
 
+	objective_label = Label.new()
+	objective_label.text = ""
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_apply_menu_label_style(objective_label, 18)
+	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(objective_label)
+
 	var powerup_title := Label.new()
 	powerup_title.text = "Power Ups"
 	powerup_title.add_theme_font_override("font", MENU_TITLE_FONT)
@@ -1130,7 +1244,23 @@ func _sync_progression_hud() -> void:
 		happiness_label.text = "Happiness " + str(happiness) + "%"
 	if happiness_bar != null:
 		happiness_bar.value = float(happiness)
+	if objective_label != null:
+		objective_label.text = _get_objective_text()
 	_sync_powerup_buttons()
+
+func _get_objective_text() -> String:
+	if endless_mode:
+		return "Endless mode"
+	if game_over:
+		return "Game over"
+	if recovery_active:
+		var remaining_cards: int = maxi(HAPPINESS_RECOVERY_CARDS - objective_cards_played, 0)
+		var missing: int = maxi(recovery_target_happiness - happiness, 0)
+		return "Recovery: +" + str(missing) + "% in " + str(remaining_cards) + " cards"
+	var remaining_normal_cards: int = maxi(HAPPINESS_CHECK_CARDS - objective_cards_played, 0)
+	var gained: int = happiness - objective_start_happiness
+	var remaining_gain: int = maxi(HAPPINESS_CHECK_TARGET - gained, 0)
+	return "Goal: +" + str(remaining_gain) + "% happiness in " + str(remaining_normal_cards) + " cards"
 
 func _sync_powerup_buttons() -> void:
 	if powerup_list == null:
