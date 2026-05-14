@@ -17,6 +17,13 @@ const PLACEMENT_OBJECT: String = "object"
 const TERRAIN_LAND: String = "land"
 const TERRAIN_WATER: String = "water"
 const TERRAIN_ANY: String = "any"
+const KIND_GRASS: String = "grass"
+const KIND_ROAD: String = "road"
+const KIND_WATER: String = "water"
+const KIND_BUILDING: String = "building"
+const KIND_NATURE: String = "nature"
+const KIND_DECORATION: String = "decoration"
+const KIND_WATER_DECORATION: String = "water_decoration"
 const ASSET_ROOT: String = "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/"
 const MENU_WIDTH: float = 633.0
 const MENU_BUTTON_NORMAL := Color(0.27058825, 0.3529412, 0.39215687, 1.0)
@@ -24,6 +31,11 @@ const MENU_BUTTON_PRESSED := Color(0.14901961, 0.19607843, 0.21960784, 1.0)
 const MENU_BUTTON_HOVER := Color(0.47058824, 0.5647059, 0.6117647, 1.0)
 const MENU_FONT_COLOR := Color(0.9254902, 0.9372549, 0.94509804, 1.0)
 const XP_PER_PLACEMENT: int = 1
+const HAPPINESS_START: int = 0
+const HAPPINESS_MAX: int = 100
+const HAPPINESS_BUILDING_PERCENT: int = 5
+const HAPPINESS_BUILDING_ROAD_BONUS_PERCENT: int = 5
+const HAPPINESS_ROAD_CONNECTION_PERCENT: int = 3
 const BASE_XP_TO_LEVEL: int = 4
 const XP_GROWTH_PER_LEVEL: int = 2
 const POWERUP_REWARD_MIN: int = 2
@@ -60,45 +72,52 @@ const ADDITIONAL_PLACEABLES: Array[Dictionary] = [
 		"id": "house",
 		"label": "House",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_home_A_blue.obj",
-		"placement_layer": PLACEMENT_OBJECT
+		"placement_layer": PLACEMENT_OBJECT,
+		"placeable_kind": KIND_BUILDING
 	},
 	{
 		"id": "castle",
 		"label": "Castle",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_castle_blue.obj",
-		"placement_layer": PLACEMENT_OBJECT
+		"placement_layer": PLACEMENT_OBJECT,
+		"placeable_kind": KIND_BUILDING
 	},
 	{
 		"id": "market",
 		"label": "Market",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/blue/building_market_blue.obj",
-		"placement_layer": PLACEMENT_OBJECT
+		"placement_layer": PLACEMENT_OBJECT,
+		"placeable_kind": KIND_BUILDING
 	},
 	{
 		"id": "forest",
 		"label": "Forest",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/trees_A_large.obj",
-		"placement_layer": PLACEMENT_OBJECT
+		"placement_layer": PLACEMENT_OBJECT,
+		"placeable_kind": KIND_NATURE
 	},
 	{
 		"id": "mountain",
 		"label": "Mountain",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/decoration/nature/mountain_A_grass_trees.obj",
-		"placement_layer": PLACEMENT_OBJECT
+		"placement_layer": PLACEMENT_OBJECT,
+		"placeable_kind": KIND_NATURE
 	},
 	{
 		"id": "road",
 		"label": "Road",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/roads/hex_road_A.obj",
 		"placement_layer": PLACEMENT_TERRAIN,
-		"terrain_type": TERRAIN_LAND
+		"terrain_type": TERRAIN_LAND,
+		"placeable_kind": KIND_ROAD
 	},
 	{
 		"id": "coast",
 		"label": "Coast",
 		"mesh_path": "res://KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/tiles/coast/hex_coast_A.obj",
 		"placement_layer": PLACEMENT_TERRAIN,
-		"terrain_type": TERRAIN_WATER
+		"terrain_type": TERRAIN_WATER,
+		"placeable_kind": KIND_WATER
 	}
 ]
 
@@ -122,6 +141,9 @@ var card_placeable_previews: Dictionary = {}
 var terrain_cells: Dictionary = {}
 var object_cells: Dictionary = {}
 var terrain_types: Dictionary = {}
+var terrain_kinds: Dictionary = {}
+var object_kinds: Dictionary = {}
+var happiness_cell_scores: Dictionary = {}
 var menu_panel: PanelContainer = null
 var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
@@ -139,11 +161,14 @@ var progression_panel: PanelContainer = null
 var level_label: Label = null
 var xp_label: Label = null
 var xp_bar: ProgressBar = null
+var happiness_label: Label = null
+var happiness_bar: ProgressBar = null
 var powerup_list: VBoxContainer = null
 var search_panel: PanelContainer = null
-var search_list: VBoxContainer = null
+var search_list: GridContainer = null
 var pending_search_powerup_index: int = -1
 var bigger_hand_uses: int = 0
+var happiness: int = HAPPINESS_START
 
 func _ready():
 	add_to_group("placement_controller")
@@ -158,9 +183,9 @@ func _ready():
 	_seed_existing_terrain_cells()
 	default_land_tile_material = _find_default_land_tile_material()
 	placeable_previews.clear()
-	_register_placeable_preview(preview_building, PLACEMENT_OBJECT)
-	_register_placeable_preview(preview_river, PLACEMENT_TERRAIN, TERRAIN_WATER)
-	_register_placeable_preview(preview_grass, PLACEMENT_TERRAIN, TERRAIN_LAND)
+	_register_placeable_preview(preview_building, PLACEMENT_OBJECT, TERRAIN_LAND, KIND_BUILDING)
+	_register_placeable_preview(preview_river, PLACEMENT_TERRAIN, TERRAIN_WATER, KIND_WATER)
+	_register_placeable_preview(preview_grass, PLACEMENT_TERRAIN, TERRAIN_LAND, KIND_GRASS)
 	_create_additional_placeables()
 	_hide_all_previews()
 	_create_ingame_menu()
@@ -284,9 +309,11 @@ func _place_item(pos: Vector3):
 	if new_mesh != null:
 		new_mesh.create_trimesh_collision()
 	new_item.set_meta("placement_layer", placement_layer)
+	new_item.set_meta("placeable_kind", _get_placeable_kind(current_active_model))
 	if placement_layer == PLACEMENT_TERRAIN:
 		new_item.set_meta("terrain_type", _get_terrain_type(current_active_model))
 	_register_placed_item(cell, placement_layer, new_item)
+	_apply_happiness_for_placement(cell, placement_layer, new_item)
 	_gain_progression_xp(XP_PER_PLACEMENT)
 	
 	print("placement successful: ", current_active_model.name)
@@ -332,6 +359,7 @@ func _create_additional_placeables() -> void:
 		var mesh_path: String = str(placeable["mesh_path"])
 		var placement_layer: String = str(placeable["placement_layer"])
 		var terrain_type: String = str(placeable.get("terrain_type", TERRAIN_LAND))
+		var placeable_kind: String = str(placeable.get("placeable_kind", _guess_placeable_kind(id, placement_layer, terrain_type)))
 		var mesh_resource: Resource = load(mesh_path)
 
 		if not (mesh_resource is Mesh):
@@ -343,10 +371,11 @@ func _create_additional_placeables() -> void:
 		preview.mesh = mesh_resource as Mesh
 		preview.scale = Vector3(2.0, 2.0, 2.0)
 		build_preview_node.add_child(preview)
-		_register_placeable_preview(preview, placement_layer, terrain_type)
+		_register_placeable_preview(preview, placement_layer, terrain_type, placeable_kind)
 
-func _register_placeable_preview(preview: Node3D, placement_layer: String, terrain_type: String = TERRAIN_LAND) -> void:
+func _register_placeable_preview(preview: Node3D, placement_layer: String, terrain_type: String = TERRAIN_LAND, placeable_kind: String = "") -> void:
 	preview.set_meta("placement_layer", placement_layer)
+	preview.set_meta("placeable_kind", placeable_kind if not placeable_kind.is_empty() else _guess_placeable_kind(preview.name, placement_layer, terrain_type))
 	if placement_layer == PLACEMENT_TERRAIN:
 		preview.set_meta("terrain_type", terrain_type)
 	placeable_previews.append(preview)
@@ -355,6 +384,9 @@ func _seed_existing_terrain_cells() -> void:
 	terrain_cells.clear()
 	object_cells.clear()
 	terrain_types.clear()
+	terrain_kinds.clear()
+	object_kinds.clear()
+	happiness_cell_scores.clear()
 	for child: Node in world_node.get_children():
 		var node_3d: Node3D = child as Node3D
 		if node_3d == null:
@@ -364,8 +396,10 @@ func _seed_existing_terrain_cells() -> void:
 		var cell: Vector2i = hex_grid.world_to_axial(node_3d.global_position)
 		terrain_cells[cell] = node_3d
 		terrain_types[cell] = TERRAIN_LAND
+		terrain_kinds[cell] = KIND_GRASS
 		node_3d.set_meta("placement_layer", PLACEMENT_TERRAIN)
 		node_3d.set_meta("terrain_type", TERRAIN_LAND)
+		node_3d.set_meta("placeable_kind", KIND_GRASS)
 
 func _can_place_at(cell: Vector2i, placement_layer: String) -> bool:
 	if placement_layer == PLACEMENT_TERRAIN:
@@ -399,8 +433,64 @@ func _register_placed_item(cell: Vector2i, placement_layer: String, item: Node3D
 	if placement_layer == PLACEMENT_TERRAIN:
 		terrain_cells[cell] = item
 		terrain_types[cell] = _get_terrain_type(item)
+		terrain_kinds[cell] = _get_placeable_kind(item)
 	elif placement_layer == PLACEMENT_OBJECT:
 		object_cells[cell] = item
+		object_kinds[cell] = _get_placeable_kind(item)
+
+func _apply_happiness_for_placement(cell: Vector2i, placement_layer: String, item: Node3D) -> void:
+	var placeable_kind := _get_placeable_kind(item)
+	var delta := 0
+
+	if placement_layer == PLACEMENT_OBJECT:
+		delta = _get_object_happiness_delta(cell, placeable_kind)
+	elif placement_layer == PLACEMENT_TERRAIN and placeable_kind == KIND_ROAD:
+		delta = _get_road_happiness_delta(cell)
+
+	if delta == 0:
+		return
+
+	var score_key := _happiness_score_key(cell, placement_layer)
+	happiness_cell_scores[score_key] = int(happiness_cell_scores.get(score_key, 0)) + delta
+	_change_happiness(delta)
+
+func _happiness_score_key(cell: Vector2i, placement_layer: String) -> String:
+	return placement_layer + ":" + str(cell.x) + "," + str(cell.y)
+
+func _get_object_happiness_delta(cell: Vector2i, placeable_kind: String) -> int:
+	if placeable_kind == KIND_BUILDING:
+		var delta := HAPPINESS_BUILDING_PERCENT
+		if _has_adjacent_road(cell):
+			delta += HAPPINESS_BUILDING_ROAD_BONUS_PERCENT
+		return delta
+
+	return 0
+
+func _get_road_happiness_delta(cell: Vector2i) -> int:
+	var connected_buildings := _get_adjacent_building_count(cell)
+	if connected_buildings <= 0:
+		return 0
+	return connected_buildings * HAPPINESS_ROAD_CONNECTION_PERCENT
+
+func _get_adjacent_building_count(cell: Vector2i) -> int:
+	var building_count := 0
+	for direction: Vector2i in AXIAL_DIRECTIONS:
+		var neighbor := cell + direction
+		if object_kinds.has(neighbor) and str(object_kinds[neighbor]) == KIND_BUILDING:
+			building_count += 1
+	return building_count
+
+func _has_adjacent_road(cell: Vector2i) -> bool:
+	for direction: Vector2i in AXIAL_DIRECTIONS:
+		var neighbor := cell + direction
+		if terrain_kinds.has(neighbor) and str(terrain_kinds[neighbor]) == KIND_ROAD:
+			return true
+	return false
+
+func _change_happiness(delta: int) -> void:
+	happiness = clampi(happiness + delta, 0, HAPPINESS_MAX)
+	_sync_progression_hud()
+
 
 func _terrain_accepts_object(cell: Vector2i, placeable: Node3D = null) -> bool:
 	var required_terrain: String = TERRAIN_LAND
@@ -442,6 +532,27 @@ func _get_terrain_type(placeable: Node3D) -> String:
 		return str(placeable.get_meta("terrain_type"))
 	return TERRAIN_LAND
 
+func _get_placeable_kind(placeable: Node3D) -> String:
+	if placeable.has_meta("placeable_kind"):
+		return str(placeable.get_meta("placeable_kind"))
+	return _guess_placeable_kind(placeable.name, _get_placement_layer(placeable), _get_terrain_type(placeable))
+
+func _guess_placeable_kind(label: String, placement_layer: String, terrain_type: String = TERRAIN_LAND) -> String:
+	var key := label.to_lower()
+	if placement_layer == PLACEMENT_TERRAIN:
+		if key.contains("road"):
+			return KIND_ROAD
+		if terrain_type == TERRAIN_WATER or key.contains("water") or key.contains("coast") or key.contains("river"):
+			return KIND_WATER
+		return KIND_GRASS
+	if key.contains("house") or key.contains("home") or key.contains("castle") or key.contains("market") or key.contains("building") or key.contains("church") or key.contains("tavern") or key.contains("mill") or key.contains("mine") or key.contains("blacksmith") or key.contains("barracks"):
+		return KIND_BUILDING
+	if key.contains("tree") or key.contains("forest") or key.contains("hill") or key.contains("mountain") or key.contains("rock"):
+		return KIND_NATURE
+	if key.contains("waterlily") or key.contains("waterplant"):
+		return KIND_WATER_DECORATION
+	return KIND_DECORATION
+
 func _consume_source_card() -> void:
 	if current_source_card == null or not is_instance_valid(current_source_card):
 		current_source_card = null
@@ -465,7 +576,7 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	if definition.is_empty():
 		return null
 
-	var cache_key: String = str(definition["mesh_path"]) + "|" + str(definition["placement_layer"]) + "|" + str(definition.get("terrain_type", TERRAIN_LAND)) + "|" + str(definition.get("terrain_requirement", TERRAIN_ANY)) + "|" + str(definition.get("scale", 2.0))
+	var cache_key: String = str(definition["mesh_path"]) + "|" + str(definition["placement_layer"]) + "|" + str(definition.get("terrain_type", TERRAIN_LAND)) + "|" + str(definition.get("terrain_requirement", TERRAIN_ANY)) + "|" + str(definition.get("scale", 2.0)) + "|" + str(definition.get("placeable_kind", ""))
 	if card_placeable_previews.has(cache_key):
 		return card_placeable_previews[cache_key]
 
@@ -482,7 +593,7 @@ func _get_or_create_card_preview(card_data: CardData) -> Node3D:
 	if str(definition["placement_layer"]) == PLACEMENT_TERRAIN and str(definition.get("terrain_type", TERRAIN_LAND)) == TERRAIN_LAND:
 		_apply_default_land_tile_material(preview)
 	build_preview_node.add_child(preview)
-	_register_placeable_preview(preview, str(definition["placement_layer"]), str(definition.get("terrain_type", TERRAIN_LAND)))
+	_register_placeable_preview(preview, str(definition["placement_layer"]), str(definition.get("terrain_type", TERRAIN_LAND)), str(definition.get("placeable_kind", "")))
 	if definition.has("terrain_requirement"):
 		preview.set_meta("terrain_requirement", str(definition["terrain_requirement"]))
 	preview.hide()
@@ -498,51 +609,52 @@ func _get_card_placeable_definition(card_data: CardData) -> Dictionary:
 	var key: String = (card_id + " " + display_name + " " + texture_path).replace("  ", " ")
 
 	if key.contains("mountain"):
-		return _object_definition(_nature_mesh_path(key, "mountain", "mountain_A_grass_trees"), TERRAIN_LAND)
+		return _object_definition(_nature_mesh_path(key, "mountain", "mountain_A_grass_trees"), TERRAIN_LAND, 2.0, KIND_NATURE)
 	if key.contains("waterlily"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/waterlily_A.obj", TERRAIN_WATER, 4.5)
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterlily_A.obj", TERRAIN_WATER, 4.5, KIND_WATER_DECORATION)
 	if key.contains("waterplant"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/waterplant_C.obj", TERRAIN_WATER, 4.5)
+		return _object_definition(ASSET_ROOT + "decoration/nature/waterplant_C.obj", TERRAIN_WATER, 4.5, KIND_WATER_DECORATION)
 	if key.contains("grass bottom"):
-		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND)
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND, KIND_GRASS)
 	if key.contains("grass sloped high"):
-		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_sloped_high.obj", TERRAIN_LAND)
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass_sloped_high.obj", TERRAIN_LAND, KIND_GRASS)
 	if key.contains("grass"):
-		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND)
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_grass.obj", TERRAIN_LAND, KIND_GRASS)
 	if key.contains("water") and not key.contains("bucket") and not key.contains("watermill"):
-		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_water.obj", TERRAIN_WATER)
+		return _terrain_definition(ASSET_ROOT + "tiles/base/hex_water.obj", TERRAIN_WATER, KIND_WATER)
 	if key.contains("coastb") or key.contains("coast b"):
-		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_B.obj", TERRAIN_WATER)
+		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_B.obj", TERRAIN_WATER, KIND_WATER)
 	if key.contains("coasta") or key.contains("coast a") or key.contains("coast"):
-		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_A.obj", TERRAIN_WATER)
+		return _terrain_definition(ASSET_ROOT + "tiles/coast/hex_coast_A.obj", TERRAIN_WATER, KIND_WATER)
 	if key.contains("river"):
-		return _terrain_definition(_lettered_tile_path(key, "river", ASSET_ROOT + "tiles/rivers/hex_river_", ".obj"), TERRAIN_WATER)
+		return _terrain_definition(_lettered_tile_path(key, "river", ASSET_ROOT + "tiles/rivers/hex_river_", ".obj"), TERRAIN_WATER, KIND_WATER)
 	if key.contains("road"):
-		return _terrain_definition(_lettered_tile_path(key, "road", ASSET_ROOT + "tiles/roads/hex_road_", ".obj"), TERRAIN_LAND)
+		return _terrain_definition(_lettered_tile_path(key, "road", ASSET_ROOT + "tiles/roads/hex_road_", ".obj"), TERRAIN_LAND, KIND_ROAD)
 	if key.contains("building"):
-		return _object_definition(_building_mesh_path(key), TERRAIN_LAND)
+		return _object_definition(_building_mesh_path(key), TERRAIN_LAND, 2.0, KIND_BUILDING)
 	if key.contains("hill"):
-		return _object_definition(_nature_mesh_path(key, "hills", "hills_A_trees"), TERRAIN_LAND)
+		return _object_definition(_nature_mesh_path(key, "hills", "hills_A_trees"), TERRAIN_LAND, 2.0, KIND_NATURE)
 	if key.contains("tree"):
-		return _object_definition(_nature_mesh_path(key, "tree", "trees_A_large"), TERRAIN_LAND)
+		return _object_definition(_nature_mesh_path(key, "tree", "trees_A_large"), TERRAIN_LAND, 2.0, KIND_NATURE)
 	if key.contains("rock"):
-		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND, 4.0)
+		return _object_definition(ASSET_ROOT + "decoration/nature/rock_single_A.obj", TERRAIN_LAND, 4.0, KIND_NATURE)
 	if key.contains("barrel"):
-		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND, 4.5)
+		return _object_definition(ASSET_ROOT + "decoration/props/barrel.obj", TERRAIN_LAND, 4.5, KIND_DECORATION)
 	if key.contains("bucket"):
-		return _object_definition(ASSET_ROOT + "decoration/props/bucket_water.obj", TERRAIN_LAND)
+		return _object_definition(ASSET_ROOT + "decoration/props/bucket_water.obj", TERRAIN_LAND, 2.0, KIND_DECORATION)
 	if key.contains("tent"):
-		return _object_definition(ASSET_ROOT + "decoration/props/tent.obj", TERRAIN_LAND)
+		return _object_definition(ASSET_ROOT + "decoration/props/tent.obj", TERRAIN_LAND, 2.0, KIND_DECORATION)
 	if key.contains("flag"):
-		return _object_definition(ASSET_ROOT + "decoration/props/flag_blue.obj", TERRAIN_LAND)
+		return _object_definition(ASSET_ROOT + "decoration/props/flag_blue.obj", TERRAIN_LAND, 2.0, KIND_DECORATION)
 
 	return {}
 
-func _terrain_definition(mesh_path: String, terrain_type: String) -> Dictionary:
+func _terrain_definition(mesh_path: String, terrain_type: String, placeable_kind: String) -> Dictionary:
 	return {
 		"mesh_path": mesh_path,
 		"placement_layer": PLACEMENT_TERRAIN,
-		"terrain_type": terrain_type
+		"terrain_type": terrain_type,
+		"placeable_kind": placeable_kind
 	}
 
 func _find_default_land_tile_material() -> Material:
@@ -573,12 +685,13 @@ func _apply_default_land_tile_material(mesh_instance: MeshInstance3D) -> void:
 		return
 	mesh_instance.material_override = default_land_tile_material
 
-func _object_definition(mesh_path: String, terrain_requirement: String, scale: float = 2.0) -> Dictionary:
+func _object_definition(mesh_path: String, terrain_requirement: String, scale: float = 2.0, placeable_kind: String = KIND_DECORATION) -> Dictionary:
 	return {
 		"mesh_path": mesh_path,
 		"placement_layer": PLACEMENT_OBJECT,
 		"terrain_requirement": terrain_requirement,
-		"scale": scale
+		"scale": scale,
+		"placeable_kind": placeable_kind
 	}
 
 func _lettered_tile_path(key: String, tile_type: String, prefix: String, suffix: String) -> String:
@@ -762,7 +875,7 @@ func _create_progression_hud() -> void:
 	progression_panel.offset_left = 18.0
 	progression_panel.offset_top = 18.0
 	progression_panel.offset_right = 326.0
-	progression_panel.offset_bottom = 360.0
+	progression_panel.offset_bottom = 430.0
 	progression_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(progression_panel)
 
@@ -791,6 +904,20 @@ func _create_progression_hud() -> void:
 	xp_bar.custom_minimum_size = Vector2(0.0, 20.0)
 	layout.add_child(xp_bar)
 
+	happiness_label = Label.new()
+	happiness_label.text = "Happiness 0%"
+	_apply_menu_label_style(happiness_label, 20)
+	happiness_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(happiness_label)
+
+	happiness_bar = ProgressBar.new()
+	happiness_bar.min_value = 0.0
+	happiness_bar.max_value = float(HAPPINESS_MAX)
+	happiness_bar.value = float(happiness)
+	happiness_bar.show_percentage = false
+	happiness_bar.custom_minimum_size = Vector2(0.0, 20.0)
+	layout.add_child(happiness_bar)
+
 	var powerup_title := Label.new()
 	powerup_title.text = "Power Ups"
 	powerup_title.add_theme_font_override("font", MENU_TITLE_FONT)
@@ -813,9 +940,9 @@ func _create_search_panel() -> void:
 	search_panel.anchor_top = 0.5
 	search_panel.anchor_right = 0.5
 	search_panel.anchor_bottom = 0.5
-	search_panel.offset_left = -230.0
+	search_panel.offset_left = -330.0
 	search_panel.offset_top = -285.0
-	search_panel.offset_right = 230.0
+	search_panel.offset_right = 330.0
 	search_panel.offset_bottom = 285.0
 	search_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(search_panel)
@@ -835,8 +962,10 @@ func _create_search_panel() -> void:
 	scroll.custom_minimum_size = Vector2(0.0, 390.0)
 	layout.add_child(scroll)
 
-	search_list = VBoxContainer.new()
-	search_list.add_theme_constant_override("separation", 6)
+	search_list = GridContainer.new()
+	search_list.columns = 3
+	search_list.add_theme_constant_override("h_separation", 8)
+	search_list.add_theme_constant_override("v_separation", 8)
 	scroll.add_child(search_list)
 
 	var cancel_button := _create_menu_button("Cancel")
@@ -886,6 +1015,10 @@ func _sync_progression_hud() -> void:
 	if xp_bar != null:
 		xp_bar.max_value = float(xp_to_next_level)
 		xp_bar.value = float(current_xp)
+	if happiness_label != null:
+		happiness_label.text = "Happiness " + str(happiness) + "%"
+	if happiness_bar != null:
+		happiness_bar.value = float(happiness)
 	_sync_powerup_buttons()
 
 func _sync_powerup_buttons() -> void:
@@ -961,8 +1094,8 @@ func _show_search_panel(powerup_index: int) -> void:
 		card_button.text = _get_card_display_name(card_data)
 		card_button.tooltip_text = "Add this card to your hand"
 		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		card_button.custom_minimum_size = Vector2(0.0, 42.0)
-		_apply_menu_button_style(card_button, 20)
+		card_button.custom_minimum_size = Vector2(190.0, 42.0)
+		_apply_menu_button_style(card_button, 18)
 		card_button.pressed.connect(_finish_search_powerup.bind(card_data))
 		search_list.add_child(card_button)
 
@@ -998,14 +1131,18 @@ func _get_unique_deck_cards(deck: Node) -> Array[CardData]:
 		var card_data := raw_card as CardData
 		if card_data == null:
 			continue
-		var key := str(card_data.card_id)
-		if key.is_empty():
-			key = str(card_data.resource_path)
+		var key := _get_card_dedupe_key(card_data)
 		if seen.has(key):
 			continue
 		seen[key] = true
 		cards.append(card_data)
 	return cards
+
+func _get_card_dedupe_key(card_data: CardData) -> String:
+	var texture_path := ""
+	if card_data.texture != null:
+		texture_path = str(card_data.texture.resource_path)
+	return (str(card_data.card_id) + "|" + str(card_data.display_name) + "|" + texture_path).to_lower()
 
 func _get_card_display_name(card_data: CardData) -> String:
 	if card_data == null:
@@ -1247,6 +1384,12 @@ func _delete_selected_object() -> void:
 	var cell: Vector2i = hex_grid.world_to_axial(selected_object.global_position)
 	if object_cells.has(cell):
 		object_cells.erase(cell)
+	if object_kinds.has(cell):
+		object_kinds.erase(cell)
+	var happiness_key := _happiness_score_key(cell, PLACEMENT_OBJECT)
+	if happiness_cell_scores.has(happiness_key):
+		_change_happiness(-int(happiness_cell_scores[happiness_key]))
+		happiness_cell_scores.erase(happiness_key)
 
 	print("deleting: ", selected_object.name)
 	selected_object.queue_free()
