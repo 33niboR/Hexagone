@@ -151,6 +151,8 @@ var placement_indicators: Array[MeshInstance3D] = []
 var placement_indicator_mesh: CylinderMesh = null
 var placement_valid_material: StandardMaterial3D = null
 var placement_invalid_material: StandardMaterial3D = null
+var menu_layer: CanvasLayer = null
+var menu_blocker: ColorRect = null
 var menu_panel: PanelContainer = null
 var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
@@ -816,6 +818,19 @@ func _toggle_fullscreen() -> void:
 	_sync_resolution_option()
 
 func _create_ingame_menu() -> void:
+	menu_layer = CanvasLayer.new()
+	menu_layer.name = "MenuLayer"
+	menu_layer.layer = 100
+	add_child(menu_layer)
+
+	menu_blocker = ColorRect.new()
+	menu_blocker.name = "MenuInputBlocker"
+	menu_blocker.visible = false
+	menu_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	menu_blocker.color = Color(0.0, 0.0, 0.0, 0.0)
+	menu_blocker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	menu_layer.add_child(menu_blocker)
+
 	var menu_button := Button.new()
 	menu_button.name = "MenuButton"
 	menu_button.text = "Menu"
@@ -829,7 +844,7 @@ func _create_ingame_menu() -> void:
 	menu_button.offset_bottom = 54.0
 	_apply_menu_button_style(menu_button, 26)
 	menu_button.pressed.connect(_toggle_ingame_menu)
-	add_child(menu_button)
+	menu_layer.add_child(menu_button)
 
 	menu_panel = PanelContainer.new()
 	menu_panel.name = "InGameMenu"
@@ -844,7 +859,7 @@ func _create_ingame_menu() -> void:
 	menu_panel.offset_right = MENU_WIDTH / 2.0
 	menu_panel.offset_bottom = 201.5
 	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
-	add_child(menu_panel)
+	menu_layer.add_child(menu_panel)
 	_create_restart_confirm_dialog()
 
 	var layout := VBoxContainer.new()
@@ -906,7 +921,10 @@ func _create_restart_confirm_dialog() -> void:
 	restart_confirm_dialog.ok_button_text = "Restart"
 	restart_confirm_dialog.cancel_button_text = "Cancel"
 	restart_confirm_dialog.confirmed.connect(_restart_game)
-	add_child(restart_confirm_dialog)
+	if menu_layer != null:
+		menu_layer.add_child(restart_confirm_dialog)
+	else:
+		add_child(restart_confirm_dialog)
 
 func _create_settings_panel() -> VBoxContainer:
 	var panel := VBoxContainer.new()
@@ -1265,12 +1283,16 @@ func _toggle_ingame_menu() -> void:
 	if menu_panel == null:
 		return
 	menu_panel.visible = not menu_panel.visible
+	if menu_blocker != null:
+		menu_blocker.visible = menu_panel.visible
 	if menu_panel.visible:
 		_sync_resolution_option()
 
 func _hide_ingame_menu() -> void:
 	if menu_panel != null:
 		menu_panel.visible = false
+	if menu_blocker != null:
+		menu_blocker.visible = false
 
 func _show_menu_section(section: String) -> void:
 	if menu_buttons_panel != null:
