@@ -24,10 +24,12 @@ func _ready() -> void:
 	_player.name = "BackgroundMusic"
 	_player.bus = MUSIC_BUS
 	_player.stream = MUSIC_STREAM
+	_player.volume_db = 0.0
 	_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	_configure_music_loop()
 	_player.finished.connect(_ensure_music_playing)
 	add_child(_player)
+	_set_bus_full_volume(MUSIC_BUS)
 	_ensure_music_playing()
 	get_tree().node_added.connect(_register_ui_node)
 	call_deferred("_register_existing_ui", get_tree().root)
@@ -183,3 +185,11 @@ func _create_stream_from_bytes(bytes: PackedByteArray) -> AudioStreamWAV:
 	stream.stereo = false
 	stream.data = bytes
 	return stream
+
+
+func _set_bus_full_volume(bus_name: StringName) -> void:
+	var bus_id := AudioServer.get_bus_index(bus_name)
+	if bus_id == -1:
+		return
+	AudioServer.set_bus_mute(bus_id, false)
+	AudioServer.set_bus_volume_db(bus_id, 0.0)

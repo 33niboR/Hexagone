@@ -32,6 +32,17 @@ func _ready():
 
 func _input(event):
 	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			# Block zoom when a UI panel is open (search deck, menu, game over)
+			var controller := get_tree().get_first_node_in_group("placement_controller")
+			if controller != null:
+				var search_panel: Control = controller.get("search_panel")
+				var menu_panel: Control = controller.get("menu_panel")
+				var game_over_overlay: Control = controller.get("game_over_overlay")
+				if (search_panel != null and search_panel.visible) \
+					or (menu_panel != null and menu_panel.visible) \
+					or (game_over_overlay != null and game_over_overlay.visible):
+					return
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			target_zoom -= zoom_speed
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:

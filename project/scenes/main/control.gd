@@ -167,17 +167,19 @@ var menu_panel: PanelContainer = null
 var settings_panel: VBoxContainer = null
 var controls_panel: VBoxContainer = null
 var menu_buttons_panel: VBoxContainer = null
-var restart_confirm_dialog: ConfirmationDialog = null
+var restart_confirm_overlay: PanelContainer = null
 var export_map_dialog: FileDialog = null
 var load_map_dialog: FileDialog = null
 var happiness_warning_dialog: AcceptDialog = null
-var game_over_dialog: AcceptDialog = null
+var game_over_overlay: PanelContainer = null
+var game_over_message_label: Label = null
 var win_dialog: ConfirmationDialog = null
 var resolution_option: OptionButton = null
 var default_land_tile_material: Material = null
 var selected_object: Node3D = null
 var selected_object_cell: Vector2i = Vector2i.ZERO
-var selected_hint_label: Label = null
+var selected_hint_label: PanelContainer = null
+var _selected_name_label: Label = null
 var player_level: int = 1
 var current_xp: int = 0
 var xp_to_next_level: int = BASE_XP_TO_LEVEL
@@ -195,6 +197,7 @@ var search_list: GridContainer = null
 var pending_search_powerup_index: int = -1
 var bigger_hand_uses: int = 0
 var happiness: int = HAPPINESS_START
+var tutorial_overlay_node: CanvasLayer = null
 var objective_cards_played: int = 0
 var objective_start_happiness: int = HAPPINESS_START
 var recovery_active: bool = false
@@ -302,7 +305,14 @@ func _process(_delta):
 		_set_world_interaction_cursor(false)
 
 func _unhandled_input(event):
+	# ESC toggles the in-game menu
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_toggle_ingame_menu()
+		get_viewport().set_input_as_handled()
+		return
 	if menu_panel != null and menu_panel.visible:
+		return
+	if game_over_overlay != null and game_over_overlay.visible:
 		return
 
 	if is_placing and current_active_model:
@@ -702,9 +712,9 @@ func _start_happiness_recovery(missing_happiness: int) -> void:
 
 func _trigger_game_over() -> void:
 	game_over = true
-	if game_over_dialog != null:
-		game_over_dialog.dialog_text = "Game over.\nReach " + str(recovery_target_happiness) + "% happiness before the recovery window ends."
-		game_over_dialog.popup_centered()
+	if game_over_overlay != null and game_over_message_label != null:
+		game_over_message_label.text = "You have not reach the required happiness.\nRequired " + str(recovery_target_happiness) + "% happiness."
+		game_over_overlay.visible = true
 
 func _check_win_condition() -> void:
 	if has_won or endless_mode or happiness < HAPPINESS_MAX:
@@ -989,10 +999,27 @@ func _create_ingame_menu() -> void:
 	menu_button.offset_top = 18.0
 	menu_button.offset_right = -18.0
 	menu_button.offset_bottom = 54.0
-	_apply_menu_button_style(menu_button, 26)
+	_apply_medieval_button_style(menu_button, 24)
 	_register_interactive_control(menu_button)
 	menu_button.pressed.connect(_toggle_ingame_menu)
 	menu_layer.add_child(menu_button)
+
+	# "?" Help / Tutorial button — immediately left of Menu
+	var help_button := Button.new()
+	help_button.name = "HelpButton"
+	help_button.text = "?"
+	help_button.tooltip_text = "How to play"
+	help_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	help_button.anchor_left = 1.0
+	help_button.anchor_right = 1.0
+	help_button.offset_left = -160.0
+	help_button.offset_top = 18.0
+	help_button.offset_right = -126.0
+	help_button.offset_bottom = 54.0
+	_apply_medieval_button_style(help_button, 24)
+	_register_interactive_control(help_button)
+	help_button.pressed.connect(_show_tutorial)
+	menu_layer.add_child(help_button)
 
 	menu_panel = PanelContainer.new()
 	menu_panel.name = "InGameMenu"
@@ -1003,26 +1030,68 @@ func _create_ingame_menu() -> void:
 	menu_panel.anchor_right = 0.5
 	menu_panel.anchor_bottom = 0.5
 	menu_panel.offset_left = -MENU_WIDTH / 2.0
-	menu_panel.offset_top = -285.0
+	menu_panel.offset_top = -280.0
 	menu_panel.offset_right = MENU_WIDTH / 2.0
-	menu_panel.offset_bottom = 285.0
-	menu_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	menu_panel.offset_bottom = 280.0
+
+	var med_panel_style := StyleBoxFlat.new()
+	med_panel_style.bg_color = Color(0.14, 0.08, 0.05, 0.96)
+	med_panel_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	med_panel_style.set_border_width_all(3)
+	med_panel_style.border_blend = true
+	med_panel_style.set_corner_radius_all(8)
+	med_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.7)
+	med_panel_style.shadow_size = 16
+	med_panel_style.shadow_offset = Vector2(0.0, 6.0)
+	med_panel_style.content_margin_left = 24.0
+	med_panel_style.content_margin_top = 20.0
+	med_panel_style.content_margin_right = 24.0
+	med_panel_style.content_margin_bottom = 20.0
+	menu_panel.add_theme_stylebox_override("panel", med_panel_style)
 	menu_layer.add_child(menu_panel)
 	_create_restart_confirm_dialog()
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 20)
+	layout.add_theme_constant_override("separation", 14)
 	menu_panel.add_child(layout)
+
+	# Top separator
+	layout.add_child(_create_hud_separator())
+
+	# Title row with sword emblems
+	var menu_title_row := HBoxContainer.new()
+	menu_title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	menu_title_row.add_theme_constant_override("separation", 12)
+	layout.add_child(menu_title_row)
+
+	var menu_emblem_l := Label.new()
+	menu_emblem_l.text = "\u2694"
+	menu_emblem_l.add_theme_font_size_override("font_size", 28)
+	menu_emblem_l.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	menu_title_row.add_child(menu_emblem_l)
 
 	var title := Label.new()
 	title.text = "Menu"
-	title.add_theme_font_override("font", MENU_TITLE_FONT)
-	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_font_override("font", MENU_BUTTON_FONT)
+	title.add_theme_font_size_override("font_size", 42)
+	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(title)
+	menu_title_row.add_child(title)
+
+	var menu_emblem_r := Label.new()
+	menu_emblem_r.text = "\u2694"
+	menu_emblem_r.add_theme_font_size_override("font_size", 28)
+	menu_emblem_r.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	menu_title_row.add_child(menu_emblem_r)
+
+	# Separator below title
+	layout.add_child(_create_hud_separator())
 
 	menu_buttons_panel = VBoxContainer.new()
-	menu_buttons_panel.add_theme_constant_override("separation", 20)
+	menu_buttons_panel.add_theme_constant_override("separation", 14)
 	layout.add_child(menu_buttons_panel)
 
 	var resume_button := _create_menu_button("Resume")
@@ -1062,12 +1131,9 @@ func _create_ingame_menu() -> void:
 	_show_menu_section("")
 
 func _create_menu_button(label: String) -> Button:
-	var button := Button.new()
-	button.text = label
-	button.mouse_filter = Control.MOUSE_FILTER_STOP
-	button.custom_minimum_size = Vector2(0.0, 52.0)
+	var button := _create_medieval_button(label)
+	button.custom_minimum_size = Vector2(0.0, 48.0)
 	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_apply_menu_button_style(button, 35)
 	_register_interactive_control(button)
 	return button
 
@@ -1076,16 +1142,119 @@ func _register_interactive_control(control: Control) -> void:
 	control.mouse_exited.connect(release_interact_cursor)
 
 func _create_restart_confirm_dialog() -> void:
-	restart_confirm_dialog = ConfirmationDialog.new()
-	restart_confirm_dialog.title = "Restart Game"
-	restart_confirm_dialog.dialog_text = "Are you sure you want to restart?"
-	restart_confirm_dialog.ok_button_text = "Restart"
-	restart_confirm_dialog.cancel_button_text = "Cancel"
-	restart_confirm_dialog.confirmed.connect(_restart_game)
+	# Fullscreen dark backdrop that blocks all input
+	var restart_backdrop := ColorRect.new()
+	restart_backdrop.name = "RestartBackdrop"
+	restart_backdrop.visible = false
+	restart_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	restart_backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	restart_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	if menu_layer != null:
-		menu_layer.add_child(restart_confirm_dialog)
+		menu_layer.add_child(restart_backdrop)
 	else:
-		add_child(restart_confirm_dialog)
+		add_child(restart_backdrop)
+
+	# Centered medieval panel
+	restart_confirm_overlay = PanelContainer.new()
+	restart_confirm_overlay.name = "RestartConfirmOverlay"
+	restart_confirm_overlay.visible = false
+	restart_confirm_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	restart_confirm_overlay.anchor_left = 0.5
+	restart_confirm_overlay.anchor_top = 0.5
+	restart_confirm_overlay.anchor_right = 0.5
+	restart_confirm_overlay.anchor_bottom = 0.5
+	restart_confirm_overlay.offset_left = -240.0
+	restart_confirm_overlay.offset_top = -140.0
+	restart_confirm_overlay.offset_right = 240.0
+	restart_confirm_overlay.offset_bottom = 140.0
+
+	var rst_panel_style := StyleBoxFlat.new()
+	rst_panel_style.bg_color = Color(0.14, 0.08, 0.05, 0.96)
+	rst_panel_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	rst_panel_style.set_border_width_all(3)
+	rst_panel_style.border_blend = true
+	rst_panel_style.set_corner_radius_all(8)
+	rst_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.7)
+	rst_panel_style.shadow_size = 14
+	rst_panel_style.shadow_offset = Vector2(0.0, 5.0)
+	rst_panel_style.content_margin_left = 22.0
+	rst_panel_style.content_margin_top = 18.0
+	rst_panel_style.content_margin_right = 22.0
+	rst_panel_style.content_margin_bottom = 18.0
+	restart_confirm_overlay.add_theme_stylebox_override("panel", rst_panel_style)
+
+	if menu_layer != null:
+		menu_layer.add_child(restart_confirm_overlay)
+	else:
+		add_child(restart_confirm_overlay)
+
+	var rst_layout := VBoxContainer.new()
+	rst_layout.alignment = BoxContainer.ALIGNMENT_CENTER
+	rst_layout.add_theme_constant_override("separation", 10)
+	restart_confirm_overlay.add_child(rst_layout)
+
+	rst_layout.add_child(_create_hud_separator())
+
+	var rst_title_row := HBoxContainer.new()
+	rst_title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	rst_title_row.add_theme_constant_override("separation", 10)
+	rst_layout.add_child(rst_title_row)
+
+	var rst_emblem_l := Label.new()
+	rst_emblem_l.text = "\u2694"
+	rst_emblem_l.add_theme_font_size_override("font_size", 26)
+	rst_emblem_l.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	rst_title_row.add_child(rst_emblem_l)
+
+	var rst_title := Label.new()
+	rst_title.text = "Restart Game"
+	rst_title.add_theme_font_override("font", MENU_BUTTON_FONT)
+	rst_title.add_theme_font_size_override("font_size", 34)
+	rst_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	rst_title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	rst_title.add_theme_constant_override("shadow_offset_x", 2)
+	rst_title.add_theme_constant_override("shadow_offset_y", 2)
+	rst_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rst_title_row.add_child(rst_title)
+
+	var rst_emblem_r := Label.new()
+	rst_emblem_r.text = "\u2694"
+	rst_emblem_r.add_theme_font_size_override("font_size", 26)
+	rst_emblem_r.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	rst_title_row.add_child(rst_emblem_r)
+
+	rst_layout.add_child(_create_hud_separator())
+
+	var rst_message := Label.new()
+	rst_message.text = "Are you sure you want to restart?"
+	rst_message.add_theme_font_override("font", MENU_BUTTON_FONT)
+	rst_message.add_theme_font_size_override("font_size", 20)
+	rst_message.add_theme_color_override("font_color", Color(0.82, 0.75, 0.62, 0.95))
+	rst_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rst_layout.add_child(rst_message)
+
+	rst_layout.add_child(_create_hud_separator())
+
+	var rst_btn_row := HBoxContainer.new()
+	rst_btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	rst_btn_row.add_theme_constant_override("separation", 16)
+	rst_layout.add_child(rst_btn_row)
+
+	var rst_confirm_btn := _create_medieval_button("Restart")
+	rst_confirm_btn.custom_minimum_size = Vector2(180.0, 44.0)
+	rst_confirm_btn.pressed.connect(_restart_game)
+	rst_btn_row.add_child(rst_confirm_btn)
+
+	var rst_cancel_btn := _create_medieval_button("Cancel")
+	rst_cancel_btn.custom_minimum_size = Vector2(180.0, 44.0)
+	rst_cancel_btn.pressed.connect(_hide_restart_confirm)
+	rst_btn_row.add_child(rst_cancel_btn)
+
+	rst_layout.add_child(_create_hud_separator())
+
+	restart_confirm_overlay.visibility_changed.connect(func():
+		restart_backdrop.visible = restart_confirm_overlay.visible
+	)
 
 	happiness_warning_dialog = AcceptDialog.new()
 	happiness_warning_dialog.title = "Happiness Warning"
@@ -1095,15 +1264,7 @@ func _create_restart_confirm_dialog() -> void:
 	else:
 		add_child(happiness_warning_dialog)
 
-	game_over_dialog = AcceptDialog.new()
-	game_over_dialog.title = "Game Over"
-	game_over_dialog.dialog_text = "The town did not recover enough happiness."
-	game_over_dialog.ok_button_text = "Restart"
-	game_over_dialog.confirmed.connect(_restart_game)
-	if menu_layer != null:
-		menu_layer.add_child(game_over_dialog)
-	else:
-		add_child(game_over_dialog)
+	_create_game_over_overlay()
 
 	win_dialog = ConfirmationDialog.new()
 	win_dialog.title = "Victory"
@@ -1444,69 +1605,361 @@ func _create_progression_hud() -> void:
 	progression_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	progression_panel.offset_left = 18.0
 	progression_panel.offset_top = 18.0
-	progression_panel.offset_right = 326.0
-	progression_panel.offset_bottom = 430.0
-	progression_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	progression_panel.offset_right = 340.0
+	progression_panel.offset_bottom = 460.0
+
+	# Medieval parchment-style panel
+	var hud_style := StyleBoxFlat.new()
+	hud_style.bg_color = Color(0.18, 0.12, 0.08, 0.92)
+	hud_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	hud_style.set_border_width_all(3)
+	hud_style.border_blend = true
+	hud_style.set_corner_radius_all(6)
+	hud_style.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
+	hud_style.shadow_size = 8
+	hud_style.shadow_offset = Vector2(0.0, 4.0)
+	hud_style.content_margin_left = 18.0
+	hud_style.content_margin_top = 14.0
+	hud_style.content_margin_right = 18.0
+	hud_style.content_margin_bottom = 14.0
+	progression_panel.add_theme_stylebox_override("panel", hud_style)
 	add_child(progression_panel)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
+	layout.add_theme_constant_override("separation", 6)
 	progression_panel.add_child(layout)
+
+	# ── Decorative top separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Level section ──
+	var level_row := HBoxContainer.new()
+	level_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	level_row.add_theme_constant_override("separation", 8)
+	layout.add_child(level_row)
+
+	var crown_left := Label.new()
+	crown_left.text = "\u265a"
+	crown_left.add_theme_font_size_override("font_size", 24)
+	crown_left.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	level_row.add_child(crown_left)
 
 	level_label = Label.new()
 	level_label.text = "Level 1"
-	level_label.add_theme_font_override("font", MENU_TITLE_FONT)
-	level_label.add_theme_font_size_override("font_size", 34)
+	level_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	level_label.add_theme_font_size_override("font_size", 30)
+	level_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	level_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	level_label.add_theme_constant_override("shadow_offset_x", 2)
+	level_label.add_theme_constant_override("shadow_offset_y", 2)
 	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(level_label)
+	level_row.add_child(level_label)
 
+	var crown_right := Label.new()
+	crown_right.text = "\u265a"
+	crown_right.add_theme_font_size_override("font_size", 24)
+	crown_right.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	level_row.add_child(crown_right)
+
+	# XP sub-label
 	xp_label = Label.new()
 	xp_label.text = "XP 0 / 4"
-	_apply_menu_label_style(xp_label, 20)
+	xp_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	xp_label.add_theme_font_size_override("font_size", 18)
+	xp_label.add_theme_color_override("font_color", Color(0.78, 0.72, 0.6, 0.9))
 	xp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(xp_label)
 
+	# XP progress bar — medieval gold fill on dark track
 	xp_bar = ProgressBar.new()
 	xp_bar.min_value = 0.0
 	xp_bar.max_value = float(xp_to_next_level)
 	xp_bar.value = 0.0
 	xp_bar.show_percentage = false
-	xp_bar.custom_minimum_size = Vector2(0.0, 20.0)
+	xp_bar.custom_minimum_size = Vector2(0.0, 14.0)
+	_apply_medieval_bar_style(xp_bar, Color(0.72, 0.58, 0.28, 1.0))
 	layout.add_child(xp_bar)
+
+	# ── Separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Citizens section ──
+	var citizen_row := HBoxContainer.new()
+	citizen_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	citizen_row.add_theme_constant_override("separation", 8)
+	layout.add_child(citizen_row)
+
+	var people_left := Label.new()
+	people_left.text = "\u2694"
+	people_left.add_theme_font_size_override("font_size", 22)
+	people_left.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	citizen_row.add_child(people_left)
 
 	happiness_label = Label.new()
 	happiness_label.text = "Happiness 0%"
-	_apply_menu_label_style(happiness_label, 20)
+	happiness_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	happiness_label.add_theme_font_size_override("font_size", 26)
+	happiness_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	happiness_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	happiness_label.add_theme_constant_override("shadow_offset_x", 2)
+	happiness_label.add_theme_constant_override("shadow_offset_y", 2)
 	happiness_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(happiness_label)
+	citizen_row.add_child(happiness_label)
 
+	var people_right := Label.new()
+	people_right.text = "\u2694"
+	people_right.add_theme_font_size_override("font_size", 22)
+	people_right.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	citizen_row.add_child(people_right)
+
+	# Citizens progress bar — warm red fill
 	happiness_bar = ProgressBar.new()
 	happiness_bar.min_value = 0.0
 	happiness_bar.max_value = float(HAPPINESS_MAX)
 	happiness_bar.value = float(happiness)
 	happiness_bar.show_percentage = false
-	happiness_bar.custom_minimum_size = Vector2(0.0, 20.0)
+	happiness_bar.custom_minimum_size = Vector2(0.0, 14.0)
+	_apply_medieval_bar_style(happiness_bar, Color(0.65, 0.22, 0.18, 1.0))
 	layout.add_child(happiness_bar)
 
+	# ── Objective ──
 	objective_label = Label.new()
 	objective_label.text = ""
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_apply_menu_label_style(objective_label, 18)
+	objective_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	objective_label.add_theme_font_size_override("font_size", 16)
+	objective_label.add_theme_color_override("font_color", Color(0.78, 0.72, 0.6, 0.85))
 	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(objective_label)
 
+	# ── Separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Power-ups section ──
+	var powerup_row := HBoxContainer.new()
+	powerup_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	powerup_row.add_theme_constant_override("separation", 8)
+	layout.add_child(powerup_row)
+
+	var scroll_left := Label.new()
+	scroll_left.text = "\u2727"
+	scroll_left.add_theme_font_size_override("font_size", 20)
+	scroll_left.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	powerup_row.add_child(scroll_left)
+
 	var powerup_title := Label.new()
 	powerup_title.text = "Power Ups"
-	powerup_title.add_theme_font_override("font", MENU_TITLE_FONT)
-	powerup_title.add_theme_font_size_override("font_size", 28)
+	powerup_title.add_theme_font_override("font", MENU_BUTTON_FONT)
+	powerup_title.add_theme_font_size_override("font_size", 24)
+	powerup_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	powerup_title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	powerup_title.add_theme_constant_override("shadow_offset_x", 2)
+	powerup_title.add_theme_constant_override("shadow_offset_y", 2)
 	powerup_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(powerup_title)
+	powerup_row.add_child(powerup_title)
+
+	var scroll_right := Label.new()
+	scroll_right.text = "\u2727"
+	scroll_right.add_theme_font_size_override("font_size", 20)
+	scroll_right.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	powerup_row.add_child(scroll_right)
 
 	powerup_list = VBoxContainer.new()
 	powerup_list.add_theme_constant_override("separation", 6)
 	layout.add_child(powerup_list)
 
+	# ── Bottom separator ──
+	layout.add_child(_create_hud_separator())
+
 	_create_search_panel()
+
+
+func _create_hud_separator() -> HSeparator:
+	var sep := HSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sep_style := StyleBoxFlat.new()
+	sep_style.bg_color = Color(0.72, 0.58, 0.36, 0.5)
+	sep_style.set_content_margin_all(0.0)
+	sep_style.content_margin_top = 1.0
+	sep_style.content_margin_bottom = 1.0
+	sep.add_theme_stylebox_override("separator", sep_style)
+	return sep
+
+
+func _apply_medieval_bar_style(bar: ProgressBar, fill_color: Color) -> void:
+	# Track (dark inset background)
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.06, 0.04, 0.85)
+	bg_style.border_color = Color(0.45, 0.36, 0.22, 0.7)
+	bg_style.set_border_width_all(1)
+	bg_style.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("background", bg_style)
+
+	# Fill
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = fill_color
+	fill_style.set_corner_radius_all(2)
+	bar.add_theme_stylebox_override("fill", fill_style)
+
+
+func _create_medieval_button(label: String) -> Button:
+	var button := Button.new()
+	button.text = label
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	button.custom_minimum_size = Vector2(0.0, 48.0)
+	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_apply_medieval_button_style(button, 24)
+	_register_interactive_control(button)
+	return button
+
+
+func _apply_medieval_button_style(button: BaseButton, font_size: int) -> void:
+	button.add_theme_font_override("font", MENU_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.75, 1.0))
+	button.add_theme_color_override("font_pressed_color", Color(0.72, 0.58, 0.36, 1.0))
+
+	# Normal state
+	var normal_style := StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.22, 0.15, 0.1, 0.85)
+	normal_style.border_color = Color(0.55, 0.44, 0.28, 0.7)
+	normal_style.set_border_width_all(2)
+	normal_style.set_corner_radius_all(4)
+	button.add_theme_stylebox_override("normal", normal_style)
+
+	# Hover state
+	var hover_style := StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.3, 0.2, 0.13, 0.92)
+	hover_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	hover_style.set_border_width_all(2)
+	hover_style.set_corner_radius_all(4)
+	button.add_theme_stylebox_override("hover", hover_style)
+
+	# Pressed state
+	var pressed_style := StyleBoxFlat.new()
+	pressed_style.bg_color = Color(0.12, 0.08, 0.05, 0.95)
+	pressed_style.border_color = Color(0.72, 0.58, 0.36, 0.9)
+	pressed_style.set_border_width_all(2)
+	pressed_style.set_corner_radius_all(4)
+	button.add_theme_stylebox_override("pressed", pressed_style)
+
+	# No focus outline
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+func _create_game_over_overlay() -> void:
+	# Fullscreen dark backdrop that blocks all input
+	var backdrop := ColorRect.new()
+	backdrop.name = "GameOverBackdrop"
+	backdrop.visible = false
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.65)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if menu_layer != null:
+		menu_layer.add_child(backdrop)
+	else:
+		add_child(backdrop)
+
+	# Centered medieval panel
+	game_over_overlay = PanelContainer.new()
+	game_over_overlay.name = "GameOverOverlay"
+	game_over_overlay.visible = false
+	game_over_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	game_over_overlay.anchor_left = 0.5
+	game_over_overlay.anchor_top = 0.5
+	game_over_overlay.anchor_right = 0.5
+	game_over_overlay.anchor_bottom = 0.5
+	game_over_overlay.offset_left = -260.0
+	game_over_overlay.offset_top = -160.0
+	game_over_overlay.offset_right = 260.0
+	game_over_overlay.offset_bottom = 160.0
+
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.14, 0.08, 0.05, 0.96)
+	panel_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	panel_style.set_border_width_all(3)
+	panel_style.border_blend = true
+	panel_style.set_corner_radius_all(8)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.7)
+	panel_style.shadow_size = 16
+	panel_style.shadow_offset = Vector2(0.0, 6.0)
+	panel_style.content_margin_left = 24.0
+	panel_style.content_margin_top = 20.0
+	panel_style.content_margin_right = 24.0
+	panel_style.content_margin_bottom = 20.0
+	game_over_overlay.add_theme_stylebox_override("panel", panel_style)
+
+	if menu_layer != null:
+		menu_layer.add_child(game_over_overlay)
+	else:
+		add_child(game_over_overlay)
+
+	var layout := VBoxContainer.new()
+	layout.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.add_theme_constant_override("separation", 10)
+	game_over_overlay.add_child(layout)
+
+	# ── Top separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Title row with skull emblems ──
+	var title_row := HBoxContainer.new()
+	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_row.add_theme_constant_override("separation", 12)
+	layout.add_child(title_row)
+
+	var skull_left := Label.new()
+	skull_left.text = "\u2620"
+	skull_left.add_theme_font_size_override("font_size", 32)
+	skull_left.add_theme_color_override("font_color", Color(0.85, 0.35, 0.28, 1.0))
+	title_row.add_child(skull_left)
+
+	var title := Label.new()
+	title.text = "Game Over"
+	title.add_theme_font_override("font", MENU_BUTTON_FONT)
+	title.add_theme_font_size_override("font_size", 42)
+	title.add_theme_color_override("font_color", Color(0.92, 0.32, 0.25, 1.0))
+	title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.8))
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 3)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_row.add_child(title)
+
+	var skull_right := Label.new()
+	skull_right.text = "\u2620"
+	skull_right.add_theme_font_size_override("font_size", 32)
+	skull_right.add_theme_color_override("font_color", Color(0.85, 0.35, 0.28, 1.0))
+	title_row.add_child(skull_right)
+
+	# ── Separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Message ──
+	game_over_message_label = Label.new()
+	game_over_message_label.text = "The kingdom could not recover."
+	game_over_message_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	game_over_message_label.add_theme_font_size_override("font_size", 20)
+	game_over_message_label.add_theme_color_override("font_color", Color(0.82, 0.75, 0.62, 0.95))
+	game_over_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	game_over_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	layout.add_child(game_over_message_label)
+
+	# ── Separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Restart button (only option) ──
+	var restart_button := _create_medieval_button("Restart")
+	restart_button.pressed.connect(_restart_game)
+	layout.add_child(restart_button)
+
+	# ── Bottom separator ──
+	layout.add_child(_create_hud_separator())
+
+	# Link backdrop visibility to overlay
+	game_over_overlay.visibility_changed.connect(func():
+		backdrop.visible = game_over_overlay.visible
+	)
 
 func _create_search_panel() -> void:
 	search_panel = PanelContainer.new()
@@ -1517,24 +1970,68 @@ func _create_search_panel() -> void:
 	search_panel.anchor_top = 0.5
 	search_panel.anchor_right = 0.5
 	search_panel.anchor_bottom = 0.5
-	search_panel.offset_left = -330.0
-	search_panel.offset_top = -285.0
-	search_panel.offset_right = 330.0
-	search_panel.offset_bottom = 285.0
-	search_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	search_panel.offset_left = -340.0
+	search_panel.offset_top = -295.0
+	search_panel.offset_right = 340.0
+	search_panel.offset_bottom = 295.0
+
+	# Medieval parchment-style panel (same as HUD)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.18, 0.12, 0.08, 0.95)
+	panel_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	panel_style.set_border_width_all(3)
+	panel_style.border_blend = true
+	panel_style.set_corner_radius_all(6)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.6)
+	panel_style.shadow_size = 12
+	panel_style.shadow_offset = Vector2(0.0, 4.0)
+	panel_style.content_margin_left = 20.0
+	panel_style.content_margin_top = 16.0
+	panel_style.content_margin_right = 20.0
+	panel_style.content_margin_bottom = 16.0
+	search_panel.add_theme_stylebox_override("panel", panel_style)
 	add_child(search_panel)
 
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 10)
 	search_panel.add_child(layout)
 
+	# ── Top separator ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Title row with scroll emblems ──
+	var title_row := HBoxContainer.new()
+	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_row.add_theme_constant_override("separation", 12)
+	layout.add_child(title_row)
+
+	var emblem_left := Label.new()
+	emblem_left.text = "\u2727"
+	emblem_left.add_theme_font_size_override("font_size", 28)
+	emblem_left.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	title_row.add_child(emblem_left)
+
 	var title := Label.new()
 	title.text = "Search Deck"
-	title.add_theme_font_override("font", MENU_TITLE_FONT)
-	title.add_theme_font_size_override("font_size", 44)
+	title.add_theme_font_override("font", MENU_BUTTON_FONT)
+	title.add_theme_font_size_override("font_size", 38)
+	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(title)
+	title_row.add_child(title)
 
+	var emblem_right := Label.new()
+	emblem_right.text = "\u2727"
+	emblem_right.add_theme_font_size_override("font_size", 28)
+	emblem_right.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	title_row.add_child(emblem_right)
+
+	# ── Separator below title ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Scrollable card grid ──
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0.0, 390.0)
 	layout.add_child(scroll)
@@ -1545,7 +2042,11 @@ func _create_search_panel() -> void:
 	search_list.add_theme_constant_override("v_separation", 8)
 	scroll.add_child(search_list)
 
-	var cancel_button := _create_menu_button("Cancel")
+	# ── Separator above cancel ──
+	layout.add_child(_create_hud_separator())
+
+	# ── Cancel button (medieval styled) ──
+	var cancel_button := _create_medieval_button("Cancel")
 	cancel_button.pressed.connect(_hide_search_panel)
 	layout.add_child(cancel_button)
 
@@ -1689,7 +2190,7 @@ func _show_search_panel(powerup_index: int) -> void:
 		card_button.tooltip_text = "Add this card to your hand"
 		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
 		card_button.custom_minimum_size = Vector2(190.0, 42.0)
-		_apply_menu_button_style(card_button, 18)
+		_apply_medieval_button_style(card_button, 18)
 		_register_interactive_control(card_button)
 		card_button.pressed.connect(_finish_search_powerup.bind(card_data))
 		search_list.add_child(card_button)
@@ -1854,14 +2355,30 @@ func _exit_game() -> void:
 	get_tree().quit()
 
 func _request_restart_game() -> void:
-	if restart_confirm_dialog == null:
+	if restart_confirm_overlay == null:
 		_restart_game()
 		return
-	restart_confirm_dialog.popup_centered()
+	restart_confirm_overlay.visible = true
+
+func _hide_restart_confirm() -> void:
+	if restart_confirm_overlay != null:
+		restart_confirm_overlay.visible = false
 
 func _restart_game() -> void:
 	_hide_ingame_menu()
 	get_tree().reload_current_scene()
+
+func _show_tutorial() -> void:
+	# Close any open menus first
+	if menu_panel != null and menu_panel.visible:
+		_hide_ingame_menu()
+	# Don't open a second overlay
+	if tutorial_overlay_node != null and is_instance_valid(tutorial_overlay_node):
+		return
+	var TutorialScript: GDScript = preload("res://project/scenes/main/tutorial_overlay.gd")
+	tutorial_overlay_node = CanvasLayer.new()
+	tutorial_overlay_node.set_script(TutorialScript)
+	add_child(tutorial_overlay_node)
 
 func _play_place_sfx() -> void:
 	var music_manager: Node = get_node_or_null("/root/MusicManager")
@@ -2035,18 +2552,89 @@ func _get_world_child_from_node(node: Node) -> Node3D:
 	return current as Node3D
 
 func _create_selected_hint_label() -> void:
-	selected_hint_label = Label.new()
-	selected_hint_label.text = ""
+	selected_hint_label = PanelContainer.new()
+	selected_hint_label.name = "SelectedHintPanel"
 	selected_hint_label.visible = false
-	selected_hint_label.position = Vector2(20, 390)
-	selected_hint_label.add_theme_font_size_override("font_size", 24)
+	selected_hint_label.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# Position: top-right, below the menu button
+	selected_hint_label.anchor_left = 1.0
+	selected_hint_label.anchor_right = 1.0
+	selected_hint_label.offset_left = -260.0
+	selected_hint_label.offset_top = 64.0
+	selected_hint_label.offset_right = -18.0
+	selected_hint_label.offset_bottom = 195.0
+
+	# Medieval panel style
+	var hint_style := StyleBoxFlat.new()
+	hint_style.bg_color = Color(0.18, 0.12, 0.08, 0.94)
+	hint_style.border_color = Color(0.72, 0.58, 0.36, 1.0)
+	hint_style.set_border_width_all(2)
+	hint_style.border_blend = true
+	hint_style.set_corner_radius_all(6)
+	hint_style.shadow_color = Color(0.0, 0.0, 0.0, 0.5)
+	hint_style.shadow_size = 6
+	hint_style.shadow_offset = Vector2(0.0, 3.0)
+	hint_style.content_margin_left = 14.0
+	hint_style.content_margin_top = 10.0
+	hint_style.content_margin_right = 14.0
+	hint_style.content_margin_bottom = 10.0
+	selected_hint_label.add_theme_stylebox_override("panel", hint_style)
 	add_child(selected_hint_label)
 
-func _show_selected_hint(object_name: String) -> void:
-	if selected_hint_label == null:
-		return
+	var hint_layout := VBoxContainer.new()
+	hint_layout.add_theme_constant_override("separation", 6)
+	selected_hint_label.add_child(hint_layout)
 
-	selected_hint_label.text = "Selected: " + object_name + "\nPress Delete to remove"
+	# ── Title row with shield emblem ──
+	var hint_title_row := HBoxContainer.new()
+	hint_title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hint_title_row.add_theme_constant_override("separation", 8)
+	hint_layout.add_child(hint_title_row)
+
+	var hint_emblem := Label.new()
+	hint_emblem.text = "\u26e8"
+	hint_emblem.add_theme_font_size_override("font_size", 20)
+	hint_emblem.add_theme_color_override("font_color", Color(0.85, 0.68, 0.35, 1.0))
+	hint_title_row.add_child(hint_emblem)
+
+	_selected_name_label = Label.new()
+	_selected_name_label.text = ""
+	_selected_name_label.add_theme_font_override("font", MENU_BUTTON_FONT)
+	_selected_name_label.add_theme_font_size_override("font_size", 22)
+	_selected_name_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.55, 1.0))
+	_selected_name_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	_selected_name_label.add_theme_constant_override("shadow_offset_x", 1)
+	_selected_name_label.add_theme_constant_override("shadow_offset_y", 1)
+	_selected_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_title_row.add_child(_selected_name_label)
+
+	# ── Separator ──
+	hint_layout.add_child(_create_hud_separator())
+
+	# ── Button row ──
+	var hint_btn_row := HBoxContainer.new()
+	hint_btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hint_btn_row.add_theme_constant_override("separation", 10)
+	hint_layout.add_child(hint_btn_row)
+
+	var delete_btn := _create_medieval_button("Delete")
+	delete_btn.custom_minimum_size = Vector2(100.0, 36.0)
+	delete_btn.pressed.connect(_delete_selected_object)
+	# Red-tinted font for delete
+	delete_btn.add_theme_color_override("font_color", Color(0.92, 0.45, 0.38, 1.0))
+	delete_btn.add_theme_color_override("font_hover_color", Color(1.0, 0.55, 0.45, 1.0))
+	hint_btn_row.add_child(delete_btn)
+
+	var deselect_btn := _create_medieval_button("Close")
+	deselect_btn.custom_minimum_size = Vector2(100.0, 36.0)
+	deselect_btn.pressed.connect(_clear_selected_object)
+	hint_btn_row.add_child(deselect_btn)
+
+func _show_selected_hint(object_name: String) -> void:
+	if selected_hint_label == null or _selected_name_label == null:
+		return
+	_selected_name_label.text = object_name
 	selected_hint_label.visible = true
 
 func _hide_selected_hint() -> void:
