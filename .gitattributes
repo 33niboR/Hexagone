@@ -7,3 +7,4 @@
 *.jpg binary
 *.wav binary
 *.ogg binary
+Hexagone.exe filter=lfs diff=lfs merge=lfs -text
